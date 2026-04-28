@@ -1,0 +1,88 @@
+FUNCTION z_fm_se_crm_dwnld_btmbdoc_val.
+*"----------------------------------------------------------------------
+*"*"Local Interface:
+*"  IMPORTING
+*"     VALUE(TRANSACTION_HEADER) TYPE  SMO8_TMSG OPTIONAL
+*"     VALUE(OPTIONS) TYPE  SMW3FOPT OPTIONAL
+*"  EXPORTING
+*"     VALUE(STATUS) TYPE  SMWVALSTAT
+*"     VALUE(ERR_MESSAGE) TYPE  /1CRMG0/BUS_TRANS_MSG
+*"     VALUE(ERR_MESSAGE_EXT) TYPE  BAD_BUS_TRANSN_MESSAGE
+*"  CHANGING
+*"     VALUE(HEADER) TYPE  SMW3_FHD
+*"     VALUE(TRANSACTION_MESSAGE) TYPE  /1CRMG0/BUS_TRANS_MSG
+*"     VALUE(MESSAGE_EXT) TYPE  BAD_BUS_TRANSN_MESSAGE
+*"     VALUE(RECIPIENTS) TYPE  SMW_RECTA2 OPTIONAL
+*"     REFERENCE(ERROR_SEGMENTS) TYPE  SMW_ERRTAB OPTIONAL
+*"     VALUE(OBJECT_LINKS) TYPE  TRL_BORID OPTIONAL
+*"  EXCEPTIONS
+*"      TECHNICAL_ERROR
+*"      ERROR_MESSAGE
+*"----------------------------------------------------------------------
+*&---------------------------------------------------------------------*
+*  Program Title: Custom Validation FM for BDoc type BUS_TRANS_MSG     *
+*  Module       : SE                                                   *
+*  WRICEF #     : ALM Defect 268                                       *
+*  Create Date  : 01/27/2017                                           *
+*  Author's Name: Jekaterina Vazenina VAZENINAJEKA                     *
+*  Description  : Call standart validation FM for BUS_TRANS_MSG BDoc   *
+*                 type validation. Flag documents for processing in a  *
+*                 custom table to avoid BDoc collision                 *
+*&---------------------------------------------------------------------*
+* Revision History for functionality changes
+*&---------------------------------------------------------------------*
+  DATA: ls_zgm_proc_doc_log TYPE zgm_proc_doc_log,
+        ls_bus_trans_head   TYPE /1crmg0/bus_trans_msg_head001.
+
+* Check BDoc processing sequence
+  READ TABLE transaction_message-bus_trans_msg_header INTO ls_bus_trans_head INDEX 1.
+
+  IF ls_bus_trans_head-object_id IS NOT INITIAL.
+    CALL FUNCTION 'Z_FM_SE_MIDW_ENQUE_CHECK'
+      EXPORTING
+        iv_object_id = ls_bus_trans_head-object_id
+      IMPORTING
+        is_bdoc_log  = ls_zgm_proc_doc_log.
+  ENDIF.
+
+* Call standart validation FM for BDoc type BUS_TRANS_MSG
+  CALL FUNCTION 'CRM_DOWNLOAD_BTMBDOC_VAL'
+    EXPORTING
+      transaction_header  = transaction_header
+      options             = options
+    IMPORTING
+      status              = status
+      err_message         = err_message
+      err_message_ext     = err_message_ext
+    CHANGING
+      header              = header
+      transaction_message = transaction_message
+      message_ext         = message_ext
+      recipients          = recipients
+      error_segments      = error_segments
+      object_links        = object_links
+    EXCEPTIONS
+      technical_error     = 1
+      error_message       = 2
+      OTHERS              = 3.
+
+* Error handling
+  CASE sy-subrc.
+    WHEN '1'.
+      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+                 WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4
+                 RAISING technical_error.
+
+    WHEN '2' OR '3'.
+      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+                 WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4
+                 RAISING error_message.
+  ENDCASE.
+
+* Clear processing flag
+  IF ls_zgm_proc_doc_log IS NOT INITIAL.
+    ls_zgm_proc_doc_log-processing = abap_false.
+    MODIFY zgm_proc_doc_log FROM ls_zgm_proc_doc_log.
+  ENDIF.
+
+ENDFUNCTION.

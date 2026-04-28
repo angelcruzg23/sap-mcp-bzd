@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockchain Demo — Holcim BP Learning</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>🔗 Blockchain Demo Interactiva</h1>
+    <p class="subtitle">Aprende cómo funciona una blockchain modificando bloques y viendo el efecto en la cadena</p>
+  </header>
+
+  <section class="controls">
+    <div class="input-group">
+      <label for="blockData">Datos del nuevo bloque:</label>
+      <input type="text" id="blockData" placeholder="Ej: Juan paga 5 a María" />
+    </div>
+    <button id="btnAddBlock" onclick="addBlock()">➕ Agregar Bloque</button>
+    <button id="btnReset" onclick="resetChain()">🔄 Reiniciar Cadena</button>
+  </section>
+
+  <section class="legend">
+    <span class="legend-item valid">✅ Bloque válido</span>
+    <span class="legend-item invalid">❌ Bloque inválido (cadena rota)</span>
+  </section>
+
+  <section id="blockchain" class="blockchain-container">
+    <!-- Los bloques se renderizan aquí -->
+  </section>
+
+  <section class="explanation">
+    <h2>¿Qué estás viendo?</h2>
+    <div class="concept-grid">
+      <div class="concept">
+        <h3>🔐 Hash</h3>
+        <p>Cada bloque tiene una "huella digital" única calculada a partir de sus datos. Si cambias algo, el hash cambia completamente.</p>
+      </div>
+      <div class="concept">
+        <h3>⛓️ Encadenamiento</h3>
+        <p>Cada bloque guarda el hash del bloque anterior. Esto crea una cadena donde alterar un bloque rompe todos los siguientes.</p>
+      </div>
+      <div class="concept">
+        <h3>🛡️ Inmutabilidad</h3>
+        <p>Edita los datos de cualquier bloque y observa cómo la cadena se "rompe". Así es como blockchain detecta manipulaciones.</p>
+      </div>
+    </div>
+  </section>
+
+  <script src="blockchain.js"></script>
+</body>
+</html>

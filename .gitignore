@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+
+# Node
+node_modules/
+package-lock.json
+
+# Kiro — contiene passwords en mcp.json
+.kiro/mcp.json
+.kiro/settings/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Expo
+.expo/
+
+# Embedded git repos
+QueHayMetro/mobile/
+
+# Documentos binarios (opcionales, pesan mucho)
+*.docx
+*.mht

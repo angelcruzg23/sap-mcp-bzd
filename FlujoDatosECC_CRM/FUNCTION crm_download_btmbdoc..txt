@@ -1,0 +1,945 @@
+FUNCTION crm_download_btmbdoc.
+*"----------------------------------------------------------------------
+*"*"Lokale Schnittstelle:
+*"  IMPORTING
+*"     REFERENCE(TRANSACTION_HEADER) TYPE  SMO8_TMSG OPTIONAL
+*"     REFERENCE(OPTIONS) TYPE  SMW3FOPT OPTIONAL
+*"     REFERENCE(IV_INITIALIZE) TYPE  CHAR1 DEFAULT SPACE
+*"  EXPORTING
+*"     REFERENCE(STATUS) TYPE  SMWVALSTAT
+*"     REFERENCE(ERR_MESSAGE) TYPE  ANY
+*"     REFERENCE(ERR_BUS_TRANS_MSG) TYPE  BAD_BUS_TRANSN_MESSAGE
+*"  CHANGING
+*"     REFERENCE(HEADER) TYPE  SMW3_FHD
+*"     REFERENCE(TRANSACTION_MESSAGE) TYPE  /1CRMG0/BUS_TRANS_MSG
+*"     REFERENCE(BUS_TRANS_MSG) TYPE  BAD_BUS_TRANSN_MESSAGE
+*"     REFERENCE(RECIPIENTS) TYPE  SMW_RECTA2 OPTIONAL
+*"     REFERENCE(ERROR_SEGMENTS) TYPE  SMW_ERRTAB OPTIONAL
+*"     REFERENCE(OBJECT_LINKS) TYPE  TRL_BORID OPTIONAL
+*"  EXCEPTIONS
+*"      TECHNICAL_ERROR
+*"      ERROR_MESSAGE
+*"----------------------------------------------------------------------
+
+*    Implementation of CRM Inbound Adapter
+*    10. Collect some status information
+*    15. Store BDOC (moved from position 50)
+*    20. a) Error message from R/3
+*        b) Error message from external system
+*    30. Set-up header guid table and check consistency
+*    40. Pricing type
+*    60. Mapping of subobjects
+*    70. Order delete
+*    80. Active switch, process mode
+*    85. Delete PRIDOCs if necessary
+*    87. Status handling (Contracts and other documents)
+*        working together with point 105 and 125
+*    88. Status handling (Status 'Cancelled')
+*    90. Subitems from client, order maintain
+*   100. Exception handling
+*   105. Status handling (Contracts and other documents)
+*   110. Success message from R/3 - Collect messages
+*   120. Further status handling (transferring etc.)
+*   125. Check if header status is changed from 87 and set item status
+*   130. Save table, publish events
+*   135. CPE -relevant
+*   140. Order save
+*   150. Set BDOC Status and Process Mode
+
+  CONSTANTS:
+        lc_ubb_create_mode_external TYPE crmt_ubb_create_mode VALUE 'EXT'.
+
+  DATA: lv_orderadm_h_lines    TYPE syindex,
+        lv_answer_from_r3      TYPE boolean,
+        lv_return_error        TYPE boolean,
+        lv_upload_subitems     TYPE boolean,
+        lv_no_check_delete     TYPE boolean,
+        lv_ext_message         TYPE boolean.
+
+  DATA: lv_subrc               TYPE sysubrc.
+
+  DATA: ls_orderadm_h_mess     TYPE bad_orderadm_h_mess,
+        ls_orderadm_h_mess_i1  TYPE bad_orderadm_h_mess,
+        ls_orderadm_h_com      TYPE crmt_orderadm_h_com,
+        lt_object_guid         TYPE crmt_object_guid_tab,
+        ls_object_guid         TYPE crmt_object_guid,
+        ls_ordermaintain_if    TYPE crmt_dataexchange_1o_maint_if,
+        ls_orderdelete_if      TYPE crmt_dataexchange_1o_delete_if,
+        lt_objects_to_save     TYPE crmt_object_guid_tab,
+        lt_objects_to_init     TYPE crmt_object_guid_tab,
+        lt_saved_objects       TYPE crmt_return_objects,
+        ls_saved_object        TYPE crmt_return_objects_struc,
+        lt_unsaved_objects     TYPE crmt_object_guid_tab,
+        lt_exception           TYPE crmt_exception_t,
+        ls_exception           TYPE crmt_exception_logical_key,
+        ls_object_link         TYPE borident,
+        lt_guids_saved_objects TYPE crmt_object_guid_tab,
+        ls_active_switch       TYPE crmt_active_switch,
+        lt_active_switch       TYPE crmt_active_switch_t,
+        ls_active_switch_mess  TYPE bad_active_switch_mess,
+        lv_message_type        TYPE crmt_message_type,
+        lv_loghandle           TYPE balloghndl,
+        lv_fc_active           TYPE crmci_fc_active,
+        lv_eom_active          TYPE crm_sc_dom_active,
+        lv_save_frame_log      TYPE crmt_boolean VALUE false,
+        lv_no_bdoc_send        TYPE crmt_boolean VALUE false,
+        lt_status_wrk          TYPE crmt_status_wrkt,
+        lt_pridoc_deleted      TYPE crmt_object_guid_tab,
+        lv_already_locked      TYPE crmt_boolean,
+        lv_ubb_postp_active    TYPE crmt_ubb_active.
+
+  DATA: lv_btm_rtstore         TYPE REF TO cl_crm_bus_trans_msg_rtstore,
+        lv_save_badi           TYPE REF TO if_ex_order_save.
+
+  DATA: ls_smof_erpsh          TYPE smof_erpsh.
+
+  DATA: ls_status_err_head     TYPE boolean,
+        lt_active_switch_tmp   TYPE crmt_active_switch_t,
+        lt_status_tmp          TYPE crmt_status_comt,
+        ls_status              TYPE crmt_status_com,
+        lt_input_fields_tmp    TYPE crmt_input_field_tab,
+        ls_input_fields        TYPE crmt_input_field.
+
+  DATA: lv_rele                TYPE crmt_boolean.
+
+  DATA: lv_parid               TYPE char01,
+        lt_handles             TYPE bal_t_logh.
+
+  DATA: lv_site_id      TYPE smo_siteid.
+
+  CLASS cl_smw_mflow DEFINITION LOAD.
+
+
+*-Application trace
+  INCLUDE crm_trace_btmbdoc.
+*-Supress dialog
+  CALL FUNCTION 'DIALOG_SET_NO_DIALOG'.
+*-Initialize middleware  trace
+  trc_set_comp 'Validation' 'BusinessTransaction'.          "#EC NOTEXT
+*-determine the site id from header
+  lv_site_id = transaction_header-site_id.
+  IF transaction_header-site_id IS INITIAL.
+* get transaction_header-site_id from buffer
+    CALL FUNCTION 'CRM_SFS_GET_SITE_ID'
+      IMPORTING
+        ev_site_id = lv_site_id.
+  ENDIF.
+  CALL FUNCTION 'SMOF_READ_SMOFERPSH'
+    EXPORTING
+      i_siteid     = lv_site_id
+    IMPORTING
+      e_smof_erpsh = ls_smof_erpsh.
+
+******
+*  10
+******
+*-Determine number of header records
+  DESCRIBE TABLE bus_trans_msg-orderadm_h LINES lv_orderadm_h_lines.
+*-Check number of headers
+  IF lv_orderadm_h_lines = 0.
+    status = cl_smw_mflow=>c_valstat_success.
+    trc_detail_1 'Validation Filter rejected'.              "#EC NOTEXT
+    EXIT.
+  ENDIF.
+
+*-Read order header
+  READ TABLE bus_trans_msg-orderadm_h
+             INTO ls_orderadm_h_mess_i1 INDEX 1.
+
+*-Check if FC is active: in that case ORDER_MAINTAIN must be called
+  CALL FUNCTION 'CRM_SCENARIO_GET'
+    IMPORTING
+      ev_fc_active  = lv_fc_active
+      ev_dom_active = lv_eom_active.
+*-No further processing required because ORDER_MAINTAIN will run in
+* all cases with one exception: error answer from R/3
+
+
+*-Identify answer from R/3 (order created in CRM and replicated to R/3)
+  lv_answer_from_r3 = false.
+  lv_ext_message    = false.
+*-Return table only filled in an answer from R/3
+*-alternatively there could be messages caused by a confirmation of an external system bound to document (e.g. Telco Service Confirmation)
+*-in this case the bdoc is not based on an answer from R/3
+
+  IF NOT bus_trans_msg-return[] IS INITIAL.
+
+*---messages from external systems can identified definitely by the message class.
+    READ TABLE bus_trans_msg-return TRANSPORTING NO FIELDS
+                                    WITH KEY id = 'CRM_EXTERNAL_MESSAGE'.
+    IF sy-subrc = 0.
+      lv_ext_message = true.
+    ELSE.
+*  ---Remember answer flag
+      lv_answer_from_r3 = true.
+*  ---Check for errors
+      LOOP AT bus_trans_msg-return TRANSPORTING NO FIELDS
+              WHERE type = gc_message_type-error OR
+                    type = gc_message_type-abort.
+        lv_return_error = true.
+        EXIT.
+      ENDLOOP.
+    ENDIF.
+  ENDIF.
+
+******
+*  15
+******
+*-Save BDOC header
+  PERFORM v2_save_bdoc USING bus_trans_msg
+                             header
+                    CHANGING lv_btm_rtstore.
+
+
+******
+*  20. a)
+******
+*-Answer from R/3 - Error
+  IF lv_answer_from_r3 = true  AND
+     lv_return_error   = true.
+*---Set status TRANSFER_FAILED (former CRM_BUS_TRANS_MSG_STATUS_ERROR)
+    PERFORM v2_error_answer_from_r3 USING bus_trans_msg
+                                          ls_orderadm_h_mess_i1
+                                          ls_smof_erpsh.
+*---Save status
+    ls_object_guid = ls_orderadm_h_mess_i1-orderadm_h_guid.
+    INSERT ls_object_guid INTO TABLE lt_object_guid.
+    CALL FUNCTION 'CRM_STATUS_SAVE_OW'
+      EXPORTING
+        it_header_guid = lt_object_guid.
+
+*---CSL Handling
+    IF NOT bus_trans_msg-csl_token[] IS INITIAL.
+      PERFORM get_csl_token USING bus_trans_msg-csl_token.
+    ENDIF.
+
+*---Set MW status
+    status = cl_smw_mflow=>c_valstat_success.
+    trc_detail_1 'Validation Filter rejected'.              "#EC NOTEXT
+*---Create and send BDOC
+    CALL FUNCTION 'CRM_ORDER_UPLOAD_SINGLE'
+      EXPORTING
+        iv_guid      = ls_object_guid
+      CHANGING
+        cv_save_badi = lv_save_badi.
+*---Do not continue
+    EXIT.
+  ENDIF.
+
+******
+*  20. b)
+******
+  IF lv_ext_message = true.
+    PERFORM collect_ext_message USING bus_trans_msg.
+  ENDIF.
+
+******
+*  30
+******
+  PERFORM v2_check_mobile_changes USING bus_trans_msg-orderadm_h
+                               CHANGING lv_subrc.
+  IF lv_subrc <> 0.
+    trc_detail_1 'Validation Filter error'.                 "#EC NOTEXT
+    MESSAGE e029(crm_order_misc) RAISING error_message.
+  ENDIF.
+
+
+******
+*  40
+******
+*-Determine pricing type
+  PERFORM v2_determine_pricing_type USING ls_orderadm_h_mess_i1.
+
+******
+*  60
+******
+*-Mapping
+  PERFORM map_subobjects_to_1o USING bus_trans_msg
+                            CHANGING ls_ordermaintain_if
+                                     ls_orderdelete_if.
+
+*-CSL Handling
+  IF NOT bus_trans_msg-csl_token[] IS INITIAL.
+    PERFORM get_csl_token USING bus_trans_msg-csl_token.
+  ENDIF.
+
+
+******
+*  70
+******
+*-Process deleting
+  IF NOT ls_orderdelete_if-objects_to_delete[] IS INITIAL.
+    trc_detail_1 'OrderDelete entered'.                     "#EC NOTEXT
+    PERFORM v2_check_delete_flag
+            USING ls_orderdelete_if-objects_to_delete[]
+                  bus_trans_msg-orderadm_h
+         CHANGING lv_no_check_delete.
+    CALL FUNCTION 'CRM_ORDER_DELETE'
+      EXPORTING
+        it_objects_to_delete = ls_orderdelete_if-objects_to_delete
+        iv_update_task_local = false
+        iv_no_check          = lv_no_check_delete
+      IMPORTING
+        et_exception         = ls_orderdelete_if-exception
+      CHANGING
+        cv_log_handle        = ls_orderdelete_if-log_handle.
+    IF NOT ls_orderdelete_if-exception[] IS INITIAL.
+      PERFORM reject_mbdoc USING options-partialval
+                                 ls_orderdelete_if-exception[]
+                        CHANGING status
+                                 error_segments
+                                 transaction_message
+                                 bus_trans_msg
+                                 err_message
+                                 err_bus_trans_msg.
+      IF options-partialval = false.
+        FREE lv_btm_rtstore.
+* set technical error to get back to the inbound queue
+* if the bdoc is sent from the R/3 system
+        IF ls_smof_erpsh-sitetypeid = 'SMOF_ERPSITE'.
+          RAISE technical_error.
+        ELSE.
+          RETURN.
+        ENDIF.
+      ENDIF.
+      lv_loghandle = ls_orderdelete_if-log_handle.
+    ENDIF.
+  ENDIF.
+
+
+******
+*  80
+******
+*-Set active switch
+  LOOP AT bus_trans_msg-active_switch INTO ls_active_switch_mess.
+    MOVE-CORRESPONDING ls_active_switch_mess TO ls_active_switch.
+    INSERT ls_active_switch INTO TABLE lt_active_switch.
+  ENDLOOP.
+
+* if the ubb_vol_i structure is updated, prepare the active switch
+* table to activate the UBB postprocessing.
+  IF NOT ls_ordermaintain_if-ubb_vol_i IS INITIAL.
+    CALL FUNCTION 'CRM_UBB_GET_POSTP_ACT_SWITCH'
+      EXPORTING
+        iv_create_mode   = lc_ubb_create_mode_external
+        iv_header_guid   = ls_active_switch-ref_guid
+      IMPORTING
+        ev_postp_active  = lv_ubb_postp_active
+      CHANGING
+        ct_active_switch = lt_active_switch.
+  ENDIF.
+
+*-set message type
+  IF NOT bus_trans_msg-message_type IS INITIAL.
+    CALL FUNCTION 'CRM_MSG_TYPE_MAPPING_IN2OUT'
+      EXPORTING
+        iv_message_type_in  = bus_trans_msg-message_type
+      IMPORTING
+        ev_message_type_out = lv_message_type.
+
+    CALL FUNCTION 'CRM_ORDER_PROCESS_MODE_SET_OW'
+      EXPORTING
+        iv_message_type = lv_message_type
+      EXCEPTIONS
+        error_occurred  = 1
+        parameter_error = 2
+        OTHERS          = 3.
+  ENDIF.
+
+******
+*  85
+******
+*-Do not update PRIDOCs by CRM_ORDER_MAINTAIN for R/3 salesdocuments
+  PERFORM v2_delete_pridocs CHANGING ls_ordermaintain_if
+                                     lt_pridoc_deleted.
+******
+*  86
+******
+* special check complaint processing
+  IF NOT ls_ordermaintain_if-doc_flow IS INITIAL.
+    CALL FUNCTION 'CRM_COMPL_EXT_FILTER_SET'
+      EXPORTING
+        it_orderadm_h = ls_ordermaintain_if-orderadm_h
+        it_doc_flow   = ls_ordermaintain_if-doc_flow.
+  ENDIF.
+
+******
+*  87
+******
+* Contract: Delete status RELEASES and set status RELEASED with next
+*           call of ORDER_MAINTAIN
+* Other documents: In case of document creation set status RELEASED
+*                  additionally in a second call of ORDER_MAINTAIN
+* Service Confirmation: Delete status COMPLETED and set status COMPLETED
+* with next call of ORDER_MAINTAIN
+  READ TABLE bus_trans_msg-orderadm_h INTO ls_orderadm_h_mess INDEX 1.
+  IF sy-subrc = 0 AND
+     ls_orderadm_h_mess-object_type NE gc_object_type-srv_confirm.
+*   store for Contracts the Release status and clear it.
+    LOOP AT ls_ordermaintain_if-status INTO ls_status
+                       WHERE status = gc_status-released.
+      IF ls_orderadm_h_mess-object_type = gc_object_type-contract_sales.
+        DELETE ls_ordermaintain_if-status INDEX sy-tabix.
+      ENDIF.
+      INSERT ls_status INTO TABLE lt_status_tmp.
+      READ TABLE ls_ordermaintain_if-input_fields  INTO ls_input_fields
+                         WITH KEY ref_handle   = ls_status-ref_handle
+                                  ref_guid     = ls_status-ref_guid
+                                  ref_kind     = ls_status-ref_kind
+                                  objectname   = gc_object_name-status
+                                  logical_key  = ls_status-status.
+      IF sy-subrc = 0.
+        IF ls_orderadm_h_mess-object_type = gc_object_type-contract_sales.
+          DELETE ls_ordermaintain_if-input_fields INDEX sy-tabix.
+        ENDIF.
+        INSERT ls_input_fields INTO TABLE lt_input_fields_tmp.
+        lv_rele = 'X'.
+      ENDIF.
+
+    ENDLOOP.
+*   Get actual status for contract and store the activ switch
+    IF ls_smof_erpsh-sitetypeid = 'SMOF_ERPSITE'  AND
+       lv_answer_from_r3        =  false          AND
+       lv_orderadm_h_lines      =  1.
+      PERFORM get_act_stat_contract_head
+                                   USING ls_ordermaintain_if-orderadm_h
+                                         bus_trans_msg-orderadm_h
+                                CHANGING ls_status_err_head.
+    ENDIF.
+    lt_active_switch_tmp = lt_active_switch.
+  ELSEIF sy-subrc = 0 AND
+         ls_orderadm_h_mess-object_type = gc_object_type-srv_confirm.
+    LOOP AT ls_ordermaintain_if-status INTO ls_status
+                       WHERE status = gc_status-completed.
+      DELETE ls_ordermaintain_if-status INDEX sy-tabix.
+      INSERT ls_status INTO TABLE lt_status_tmp.
+      READ TABLE ls_ordermaintain_if-input_fields  INTO ls_input_fields
+                         WITH KEY ref_handle   = ls_status-ref_handle
+                                  ref_guid     = ls_status-ref_guid
+                                  ref_kind     = ls_status-ref_kind
+                                  objectname   = gc_object_name-status
+                                  logical_key  = ls_status-status.
+      IF sy-subrc = 0.
+        DELETE ls_ordermaintain_if-input_fields INDEX sy-tabix.
+        INSERT ls_input_fields INTO TABLE lt_input_fields_tmp.
+      ENDIF.
+    ENDLOOP.
+    lt_active_switch_tmp = lt_active_switch.
+  ENDIF.
+
+******
+*  88
+******
+*-Remove all other status in case status "REJECTED" is sent
+* not relevant for BUS200116 !
+  IF ls_orderadm_h_mess-object_type NE gc_object_type-service.
+   loop at ls_ordermaintain_if-status into ls_status
+                    where status = gc_status-cancelled.
+     delete ls_ordermaintain_if-status
+                             where status <> gc_status-cancelled
+                             and ref_guid = ls_status-ref_guid.
+   endloop.
+  ENDIF.
+******
+*  90
+******
+*-Check Subitems from client
+  PERFORM check_subitems USING header
+                               bus_trans_msg
+                      CHANGING lv_upload_subitems.
+  IF lv_upload_subitems = true.
+*---Copy subitems
+    PERFORM v2_subitems_handle TABLES   bus_trans_msg-pricing_i
+                               CHANGING ls_ordermaintain_if
+                                        lt_active_switch
+                                        lv_subrc.
+  ELSE.
+*---Try to lock document in case scenario A is activated (note 802577)
+    IF ls_smof_erpsh-sitetypeid            = 'SMOF_ERPSITE'    AND
+       lv_answer_from_r3                   = false             AND
+       lv_orderadm_h_lines                 = 1                 AND
+       ls_orderadm_h_mess_i1-scenario+3(1) = gc_scenario_r3chg-int_chg.
+*-----Disable several calls in CRM_ORDER_ENQUEUE
+      CALL FUNCTION 'CRM_ORDER_SET_ACTIVE_OW'
+        EXPORTING
+          it_active_switch = lt_active_switch
+        EXCEPTIONS
+          OTHERS           = 0.
+*-----Try 10 times to lock order
+      DO 10 TIMES.
+        CALL FUNCTION 'CRM_ORDER_ENQUEUE'
+          EXPORTING
+            iv_guid           = ls_orderadm_h_mess_i1-orderadm_h_guid
+          IMPORTING
+            ev_already_locked = lv_already_locked
+          EXCEPTIONS
+            foreign_lock      = 1
+            system_failure    = 2
+            distributed_lock  = 3
+            no_change_allowed = 4
+            transferring      = 5
+            contract_locked   = 6
+            OTHERS            = 7.
+        IF lv_already_locked = true OR
+           sy-subrc          = 0.
+          EXIT.
+        ENDIF.
+        WAIT UP TO 1 SECONDS.
+      ENDDO.
+    ENDIF.
+*---Process order maintain
+    ls_ordermaintain_if-log_handle = lv_loghandle.
+    CALL FUNCTION 'CRM_ORDER_MAINTAIN'
+      EXPORTING
+        it_opport_h            = ls_ordermaintain_if-opport_h
+        it_opport_i            = ls_ordermaintain_if-opport_i
+        it_lead_h              = ls_ordermaintain_if-lead_h
+        it_activity_h          = ls_ordermaintain_if-activity_h
+        it_activity_i          = ls_ordermaintain_if-activity_i
+        it_sales               = ls_ordermaintain_if-sales
+*       it_sales_i             = ls_ordermaintain_if-sales_i
+        it_pricing             = ls_ordermaintain_if-pricing
+        it_pricing_i           = ls_ordermaintain_if-pricing_i
+        it_pridoc              = ls_ordermaintain_if-pridoc
+        it_orgman              = ls_ordermaintain_if-orgman
+        it_shipping            = ls_ordermaintain_if-shipping
+        it_product_i           = ls_ordermaintain_if-product_i
+        it_batch               = ls_ordermaintain_if-batch
+        it_finprod_i           = ls_ordermaintain_if-finprod_i
+        it_struct_i            = ls_ordermaintain_if-struct_i
+        it_config              = ls_ordermaintain_if-config
+        it_payplan             = ls_ordermaintain_if-payplan
+        it_payplan_d           = ls_ordermaintain_if-payplan_d
+        it_customer_h          = ls_ordermaintain_if-customer_h
+        it_customer_i          = ls_ordermaintain_if-customer_i
+*       it_service_h           = ls_ordermaintain_if-SERVICE_H
+        it_service_i           = ls_ordermaintain_if-service_i
+        it_service_assign      = ls_ordermaintain_if-service_assign
+        it_appointment         = ls_ordermaintain_if-appointment
+        it_text                = ls_ordermaintain_if-text
+        it_schedlin_i          = ls_ordermaintain_if-schedlin_i
+        it_partner             = ls_ordermaintain_if-partner
+        it_service_os          = ls_ordermaintain_if-service_os
+        it_cancel              = ls_ordermaintain_if-cancel
+        it_cancel_ir           = ls_ordermaintain_if-cancel_ir
+*       IT_CANCEL_DATES        = ls_ordermaintain_if-
+        it_status              = ls_ordermaintain_if-status
+        it_billplan            = ls_ordermaintain_if-billplan
+        it_billing             = ls_ordermaintain_if-billing
+        it_ordprp_i            = ls_ordermaintain_if-ordprp_i
+        it_ordprp_i_d          = ls_ordermaintain_if-ordprp_i_d
+        it_ordprp_objl_i_d     = ls_ordermaintain_if-ordprp_objl_i_d
+        it_cumulated_i         = ls_ordermaintain_if-cumulated_i
+*       IT_PRICE_AGREEMENTS_BBP =
+*       IT_PRICE_AGREEMENTS_CRM =
+*       IT_CONFIG_FILTER       =
+        it_survey              = ls_ordermaintain_if-survey
+        it_active_switch       = lt_active_switch
+        it_extension           = ls_ordermaintain_if-extension
+        it_ubb_ctr_i           = ls_ordermaintain_if-ubb_ctr_i
+        it_ubb_cr_i            = ls_ordermaintain_if-ubb_cr_i
+        it_ubb_vol_i           = ls_ordermaintain_if-ubb_vol_i
+        it_apo_i               = ls_ordermaintain_if-apo_i
+        it_ext_ref             = ls_ordermaintain_if-ext_ref
+        it_serviceplan_ie      = ls_ordermaintain_if-serviceplan_ie
+        it_serviceplan_i       = ls_ordermaintain_if-serviceplan_i
+        it_cla_h               = ls_ordermaintain_if-cla_h
+        it_srv_req_h           = ls_ordermaintain_if-srv_req_h
+        it_extension2          = ls_ordermaintain_if-extension2
+      IMPORTING
+        et_exception           = ls_ordermaintain_if-exception
+      CHANGING
+        ct_orderadm_h          = ls_ordermaintain_if-orderadm_h
+        ct_orderadm_i          = ls_ordermaintain_if-orderadm_i
+        ct_input_fields        = ls_ordermaintain_if-input_fields
+        cv_log_handle          = ls_ordermaintain_if-log_handle
+        ct_partner_attributes  = ls_ordermaintain_if-partner_attributes
+        ct_doc_flow            = ls_ordermaintain_if-doc_flow
+      EXCEPTIONS
+        error_occurred         = 1
+        document_locked        = 2
+        no_change_allowed      = 3
+        no_authority           = 4
+        OTHERS                 = 5.
+
+* if there is an error without an entry in the errortable
+    IF sy-subrc NE 0 AND
+       ls_ordermaintain_if-exception[] IS INITIAL.
+* fill sy-variables into applicationlog
+      ls_exception-code = gc_exception-error_occurred.
+      CALL FUNCTION 'CRM_MESSAGE_COLLECT'
+        EXPORTING
+          iv_ref_object    = ls_orderadm_h_mess_i1-orderadm_h_guid
+          iv_ref_kind      = gc_object_kind-orderadm_h
+          iv_caller_name   = gc_object_name-order
+          iv_logical_key   = ls_exception
+          iv_msgno         = sy-msgno
+          iv_msgid         = sy-msgid
+          iv_msgty         = sy-msgty
+          iv_msgv1         = sy-msgv1
+          iv_msgv2         = sy-msgv2
+          iv_msgv3         = sy-msgv3
+          iv_msgv4         = sy-msgv4
+          iv_use_frame_log = true
+        EXCEPTIONS
+          OTHERS           = 1.
+
+* get the exception table
+      IF sy-subrc = 0.
+        CALL FUNCTION 'CRM_MESSAGES_GET_EXCEPTIONS'
+          EXPORTING
+            iv_log_handle   = ls_ordermaintain_if-log_handle
+            iv_from_regmsg  = true
+          IMPORTING
+            et_exception    = ls_ordermaintain_if-exception
+          EXCEPTIONS
+            parameter_error = 1
+            not_found       = 2
+            OTHERS          = 3.
+      ENDIF.
+    ENDIF.
+
+    IF NOT ls_ordermaintain_if-exception[] IS INITIAL.
+      GET PARAMETER ID 'CRM_VAL_LOG' FIELD lv_parid.
+      IF sy-subrc = 0.
+        IF lv_parid = 'X' OR
+           lv_parid = 'I'.
+          CALL FUNCTION 'CRM_MESSAGES_GET_LOG_HANDLES'
+            IMPORTING
+              et_log_handle = lt_handles.
+          CALL FUNCTION 'CRM_MESSAGES_SAVE'
+            EXPORTING
+              it_log_handle = lt_handles
+            EXCEPTIONS
+              error_message = 01.
+          IF lv_parid = 'X'.
+            MESSAGE x001(00) WITH 'SYSFAIL occured, see SLG1'.  "#EC MG_PAR_CNT
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+
+*-Clear object buffers on events ROLLBACK / COMMIT
+  PERFORM init_objectbuffer ON ROLLBACK.
+  PERFORM init_objectbuffer ON COMMIT LEVEL gc_commit_level-last.
+
+
+******
+*  100
+******
+*-Check exceptions and reject objects in case of errors
+  IF NOT ls_ordermaintain_if-exception[] IS INITIAL.
+    PERFORM reject_mbdoc USING options-partialval
+                               ls_ordermaintain_if-exception[]
+                      CHANGING status
+                               error_segments
+                               transaction_message
+                               bus_trans_msg
+                               err_message
+                               err_bus_trans_msg.
+    IF options-partialval = false.
+      FREE lv_btm_rtstore.
+*     set technical error to get back to the inbound queue
+*     if the bdoc is sent from the R/3 system
+      IF ls_smof_erpsh-sitetypeid = 'SMOF_ERPSITE'.
+        RAISE technical_error.
+      ELSE.
+        RETURN.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+
+******
+*  105
+******
+*-Status RELEASED for contracts and other documents
+* in case of document creation;
+* Status COMPLETED for Service Confiramtion
+  READ TABLE bus_trans_msg-orderadm_h INTO ls_orderadm_h_mess INDEX 1.
+  IF  sy-subrc = 0 AND
+    ( ls_orderadm_h_mess-object_type = gc_object_type-contract_sales OR
+      ls_orderadm_h_mess-object_type = gc_object_type-srv_confirm OR
+      lv_rele = 'X' ).
+    PERFORM maintain_contract_status USING lt_status_tmp
+                                           lt_input_fields_tmp
+                                           lt_active_switch_tmp.
+  ENDIF.
+
+******
+*  110
+******
+*-Answer from R/3 - Success Part 2 - Collect messages
+  IF ( lv_answer_from_r3 = true  AND
+     lv_return_error   = false ) OR
+     lv_fc_active = true.
+*---Set status TRANSFER_OK (former CRM_BUS_TRANS_MSG_STATUS and
+*   CRM_DOWNLOAD_BTMBDOC_FILTER)
+    PERFORM v2_ok_answer_from_r3_status USING bus_trans_msg
+                                              header
+                                              ls_smof_erpsh.
+    PERFORM v2_ok_answer_from_r3_message USING bus_trans_msg
+                                               header.
+  ENDIF.
+
+
+******
+*  120
+******
+*-if scenario A (interdependent changing) is active the status
+* TRANSFERRED has to be set for the header and all items that are
+* created in the R/3 system
+  PERFORM v2_set_tranferred_scenario_a
+          USING bus_trans_msg.
+
+
+*-Set status FROM_OLTP for documents original in OLTP
+  PERFORM v2_status_set_from_oltp_std
+          USING ls_ordermaintain_if-orderadm_h.
+
+*-Handle credit check status (collect message in case of a normal
+* download
+  IF ls_active_switch-credit_check = gc_act_switch-inactive  AND
+     lv_answer_from_r3             = false.
+    PERFORM v2_credit_check USING ls_ordermaintain_if-orderadm_h
+                                  ls_ordermaintain_if-orderadm_i
+                                  ls_ordermaintain_if-status.
+  ENDIF.
+
+
+******
+*  125
+******
+*-Check if header status is changed from 87 and set item status
+* neccesary for Contracts with further status error
+  IF ls_status_err_head = true                  AND
+     ls_smof_erpsh-sitetypeid = 'SMOF_ERPSITE'  AND
+     lv_answer_from_r3        =  false          AND
+     lv_orderadm_h_lines      =  1.
+    PERFORM check_stat_change_item_stat
+                           USING ls_ordermaintain_if-orderadm_h
+                                 lt_active_switch_tmp.
+  ENDIF.
+
+
+******
+*  130
+******
+*-Create save table, publish save event, maintain pridocs
+  LOOP AT ls_ordermaintain_if-orderadm_h INTO ls_orderadm_h_com.
+*---Check exceptions
+    READ TABLE ls_ordermaintain_if-exception
+               WITH KEY guid = ls_orderadm_h_com-guid
+               TRANSPORTING NO FIELDS BINARY SEARCH.
+    IF sy-subrc <> 0.
+*-----Publish save event
+      INSERT ls_orderadm_h_com-guid INTO TABLE lt_objects_to_save.
+      CALL FUNCTION 'CRM_EVENT_PUBLISH_OW'
+        EXPORTING
+          iv_obj_name = gc_object_name-orderadm_h
+          iv_guid_hi  = ls_orderadm_h_com-guid
+          iv_kind_hi  = gc_object_kind-orderadm_h
+          iv_event    = gc_event-save.
+*-----Checks for Clients, scenarios, etc. are ONLY implemented in form
+*     v2_delete_pridocs and returned via table lt_pridoc_deleted
+      READ TABLE lt_pridoc_deleted
+                 WITH TABLE KEY table_line = ls_orderadm_h_com-guid
+                 TRANSPORTING NO FIELDS.
+      IF sy-subrc = 0.
+*-------Pridoc update for document download from R/3, Y, Z, ...
+        READ TABLE bus_trans_msg-orderadm_h INTO ls_orderadm_h_mess
+                   WITH KEY orderadm_h_guid = ls_orderadm_h_com-guid.
+        PERFORM pridoc_maintain TABLES bus_trans_msg-prcd_cond
+                                       bus_trans_msg-pricing_i
+                                       bus_trans_msg-cucfg
+                                       bus_trans_msg-orderadm_i
+                                       bus_trans_msg-doc_flow
+                                USING  ls_orderadm_h_mess
+                                       lt_active_switch.
+      ENDIF.
+    ENDIF.
+*---Collect Header GUIDs for initialize call
+    INSERT ls_orderadm_h_com-guid INTO TABLE lt_objects_to_init.
+  ENDLOOP.
+
+******
+*  135
+******
+*-----Begin of CPE-relevant change
+  PERFORM cpedoc_maintain TABLES
+                                bus_trans_msg-cpe_defformdoc
+                                bus_trans_msg-cpe_deftermgrp
+                                bus_trans_msg-cpe_formdoc
+                                bus_trans_msg-cpe_formconvout
+                                bus_trans_msg-cpe_forminput
+                                bus_trans_msg-cpe_formconvin
+                                bus_trans_msg-cpe_formroundin
+                                bus_trans_msg-cpe_termgrpout
+                                bus_trans_msg-cpe_termout
+                                bus_trans_msg-cpe_termconvout
+                                bus_trans_msg-cpe_termconvin
+                                bus_trans_msg-cpe_terminput
+                                bus_trans_msg-cpe_termroundin
+                                bus_trans_msg-cpe_perioddtin
+                                bus_trans_msg-cpe_perioddtout
+                                 USING
+                                    lt_active_switch.
+
+*-----End of CPE-relevant change
+
+******
+*  140
+******
+*-Save changed objects
+  IF NOT lt_objects_to_save[] IS INITIAL.
+
+*---Set handle, trace
+    lv_loghandle = ls_ordermaintain_if-log_handle.
+    trc_detail_1 'OrderSave entered'.                       "#EC NOTEXT
+*---Check debug mode
+    IF NOT lv_debug_code IS INITIAL.
+      lv_save_frame_log = true.
+    ENDIF.
+
+*---Determine if BDOC should be sent
+    lv_no_bdoc_send = false.
+    IF lv_eom_active     = true  AND
+       lv_answer_from_r3 = true.
+*-----Read status of the header
+      CALL FUNCTION 'CRM_STATUS_READ_OW'
+        EXPORTING
+          iv_guid        = ls_orderadm_h_mess_i1-orderadm_h_guid
+          iv_only_active = true
+        IMPORTING
+          et_status_wrk  = lt_status_wrk
+        EXCEPTIONS
+          not_found      = 1
+          OTHERS         = 2.
+      IF sy-subrc = 0.
+*-------Do not send BDOC if header status is still in status
+*       TRANSFERRING or TRANSFER_FAILED (EOM scenario activated)
+        READ TABLE lt_status_wrk TRANSPORTING NO FIELDS
+             WITH KEY guid   = ls_orderadm_h_mess_i1-orderadm_h_guid
+                      status = gc_status-transferring
+                      kind   = gc_object_kind-orderadm_h
+                      active = true.
+        IF sy-subrc = 0.
+          lv_no_bdoc_send = true.
+        ENDIF.
+        READ TABLE lt_status_wrk TRANSPORTING NO FIELDS
+             WITH KEY guid   = ls_orderadm_h_mess_i1-orderadm_h_guid
+                      status = gc_status-transfer_failed
+                      kind   = gc_object_kind-orderadm_h
+                      active = true.
+        IF sy-subrc = 0.
+          lv_no_bdoc_send = true.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+*---Call API
+    CALL FUNCTION 'CRM_ORDER_SAVE'
+      EXPORTING
+        it_objects_to_save   = lt_objects_to_save
+        iv_update_task_local = true
+        iv_save_frame_log    = lv_save_frame_log
+        iv_no_bdoc_send      = lv_no_bdoc_send
+      IMPORTING
+        et_saved_objects     = lt_saved_objects
+        et_exception         = lt_exception
+        et_objects_not_saved = lt_unsaved_objects
+      CHANGING
+        cv_log_handle        = lv_loghandle
+      EXCEPTIONS
+        document_not_saved   = 1
+        OTHERS               = 2.
+*---Error handling
+    PERFORM set_errormessages USING lt_objects_to_save
+                                    lt_saved_objects
+                                    lt_unsaved_objects
+                           CHANGING lt_exception.
+    IF NOT lt_exception[] IS INITIAL.
+*-----All objects should be rejected in case of errors
+      PERFORM reject_mbdoc USING space
+                                 lt_exception[]
+                        CHANGING status
+                                 error_segments
+                                 transaction_message
+                                 bus_trans_msg
+                                 err_message
+                                 err_bus_trans_msg.
+      status = cl_smw_mflow=>c_valstat_abortend.
+      FREE lv_btm_rtstore.
+* set technical error to get back to the inbound queue
+* if the bdoc is sent from the R/3 system
+      IF ls_smof_erpsh-sitetypeid = 'SMOF_ERPSITE'.
+        RAISE technical_error.
+      ELSE.
+        RETURN.
+      ENDIF.
+
+    ENDIF.
+
+*---In case of success set relationship table and status
+    LOOP AT lt_saved_objects INTO ls_saved_object.
+      INSERT ls_saved_object-guid INTO TABLE lt_guids_saved_objects.
+      READ TABLE ls_ordermaintain_if-orderadm_h INTO ls_orderadm_h_com
+                 WITH KEY guid = ls_saved_object-guid.
+      IF sy-subrc = 0.
+        ls_object_link-objkey = ls_orderadm_h_com-guid.
+        PERFORM determine_object_type
+                USING    ls_orderadm_h_com-process_type
+                CHANGING ls_object_link-objtype.
+        ls_object_link-logsys = ls_orderadm_h_com-logical_system.
+        INSERT ls_object_link INTO TABLE object_links.
+      ENDIF.
+    ENDLOOP.
+
+  ENDIF.
+
+*-Initialize OneOrder Framework, if requested
+  IF NOT iv_initialize IS INITIAL.
+    IF iv_initialize = 'A'.
+      CALL FUNCTION 'CRM_ORDER_INITIALIZE'
+        EXPORTING
+          iv_initialize_whole_buffer = true
+        EXCEPTIONS
+          error_occurred             = 1
+          OTHERS                     = 2.
+      IF sy-subrc <> 0.
+      ENDIF.
+    ELSE.
+      CALL FUNCTION 'CRM_ORDER_INITIALIZE'
+        EXPORTING
+          it_guids_to_init = lt_objects_to_init
+        EXCEPTIONS
+          error_occurred   = 1
+          OTHERS           = 2.
+      IF sy-subrc <> 0.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+
+******
+*  150
+******
+
+*-Set status
+  IF status IS INITIAL.
+    status = cl_smw_mflow=>c_valstat_success.
+  ENDIF.
+
+  FREE lv_btm_rtstore.
+
+*-reset message type
+  IF NOT lv_message_type IS INITIAL.
+    CLEAR lv_message_type.
+    CALL FUNCTION 'CRM_ORDER_PROCESS_MODE_SET_OW'
+      EXPORTING
+        iv_message_type = lv_message_type
+      EXCEPTIONS
+        error_occurred  = 1
+        parameter_error = 2
+        OTHERS          = 3.
+  ENDIF.
+
+ENDFUNCTION.

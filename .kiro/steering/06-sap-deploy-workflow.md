@@ -1,0 +1,45 @@
+# Amrize BP — Reglas de Deploy a SAP desde Kiro
+
+## Flujo controlado de deploy
+```
+1. Desarrollador crea OT en SE09 (con proyecto CTS correcto)
+2. Desarrollador da el número de OT a Kiro
+3. Kiro lee código actual de SAP (baseline para diff)
+4. Kiro genera código nuevo localmente
+5. Desarrollador revisa el diff
+6. Kiro sube código a SAP con la OT proporcionada
+7. Kiro activa el objeto
+8. Kiro ejecuta syntax check (sap_syntax_check) para validar compilación
+9. Kiro lee código de vuelta para verificar
+```
+
+## Reglas de Órdenes de Transporte
+
+1. **Siempre proporcionar la OT explícitamente** — nunca dejar que Kiro cree OTs en sistemas con CTS Project Management (como BZD). La API ADT no soporta asignación a proyecto CTS.
+2. **Crear la OT ANTES de pedir a Kiro que suba código** — en SE09/SE10 con la descripción correcta del change/ticket.
+3. **$TMP solo para POCs** — nunca para código que irá a producción.
+
+## Reglas de código
+
+4. **Siempre pedir diff antes de subir** — leer el código actual de SAP y comparar con la versión local antes de escribir.
+5. **Verificar después de subir** — leer el código de vuelta desde SAP para confirmar que quedó correcto.
+6. **Un objeto a la vez** — no subir 5 objetos de golpe. Subir uno, verificar, subir el siguiente.
+7. **Activar explícitamente** — para objetos productivos, separar el upload de la activación.
+
+## Reglas de responsabilidad
+
+8. **No subir código que no entiendas** — si Kiro propone algo y no entiendes por qué, pregunta antes de subir.
+9. **Nunca subir a PRD sin revisión humana** — Kiro genera, el desarrollador decide.
+10. **El desarrollador es siempre el responsable** — Kiro es una herramienta. El código en SAP lleva tu nombre.
+
+## Capacidades del MCP Server
+
+> Tabla detallada de capacidades y limitaciones en el skill `sap-mcp-capabilities` (activar con #sap-mcp-capabilities en chat).
+
+### Notas técnicas clave para deploy
+
+- El endpoint de FM source NO acepta bloques de comentarios de interfaz local (`*"------`). Enviar el source limpio tal como lo devuelve el GET.
+- ABAP Unit vía ADT NO detecta clases de test locales en reports — solo funciona con clases globales (ZCL_*).
+- Tipos de objeto para activación: PROG/P (programa), PROG/I (include), FUGR/FF (function module), CLAS/OC (clase), INTF/OI (interfaz).
+- Crear/escribir clases globales aún NO está soportado por el MCP — usar Eclipse ADT para esas operaciones.
+- La activación ADT puede pasar objetos con errores de sintaxis (especialmente FMs). SIEMPRE ejecutar `sap_syntax_check` después de activar — no confiar en que "activó = compila" (lección CHG0434843).
