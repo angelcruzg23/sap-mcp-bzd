@@ -7,7 +7,7 @@
 
 Durante el último mes, el equipo de desarrollo SD ha utilizado Kiro (IDE con IA de Amazon) conectado a SAP BZD 130 mediante un servidor MCP personalizado. Este documento cataloga cada caso de uso real ejecutado, con tiempos medidos y lecciones aprendidas.
 
-Resultado combinado de todos los casos: **~15 horas de trabajo manual comprimidas a ~50 minutos (~94% de reducción)**.
+Resultado combinado de todos los casos: **~18.5 horas de trabajo manual comprimidas a ~67 minutos (~94% de reducción)**.
 
 ---
 
@@ -169,6 +169,28 @@ Componentes clave:
 
 ---
 
+### CU-9: Desarrollo de Herramienta de Validación de OTs (6 Iteraciones)
+**ZR_SD_TRANSPORT_CHECKER — Validador de consistencia de Órdenes de Transporte**
+
+| Atributo | Detalle |
+|----------|---------|
+| Categoría | Desarrollo nuevo / Herramienta de productividad / Evolución iterativa |
+| Objetos | Programa ZR_SD_TRANSPORT_CHECKER (670 líneas, clase local lcl_transport_checker) |
+| Qué hizo Kiro | Diseñó y desarrolló un validador de OTs con 8 checks, evolucionando a través de 6 versiones en 2 sesiones |
+| Checks implementados | INCLUDE (includes faltantes), FUGR (FMs del grupo no incluidos), ACTIVATION (objetos inactivos), DDIC_DEP (tipos DDIC referenciados), XREF (referencias cruzadas en OTs abiertas), LOCK (objetos bloqueados), TARGET (verificación cross-system a BZP via RFC), TEST (modo test con errores ficticios) |
+| Iteración V1→V4 | Checks básicos → DDIC dependencies → filtro \TY: → filtro OTs reales (BZDK/BZDL) |
+| Iteración V5 | +RFC a BZP via `RFC_READ_TABLE`, +fix DDIC_DEP, +modo test — reveló 6 falsos positivos de clases |
+| Iteración V6 | +filtro CLAS/INTF en TADIR antes de target check — eliminó falsos positivos |
+| Resultado final | 0 errores / 0 warnings / 20 OK en BZDK930579 |
+| Capacidad clave | Desarrollo iterativo con feedback visual (screenshots del ALV) + evolución del MCP server en paralelo |
+| Tablas de sistema usadas | E070, E07T, E071, TRDIR, DWINACTIV, TADIR, WBCROSSGT, TFDIR, DD02L, DD04L, DD40L |
+| Estimado manual | ~4 horas (investigar tablas de sistema, construir lógica, probar) |
+| Con Kiro | ~15 minutos (distribuidos en 2 sesiones) |
+| Evolución MCP | Se agregó `sap_update_program_from_file` para superar límite de tamaño de parámetros MCP |
+| Lecciones aprendidas | WBCROSSGT reporta clases como otype='TY' (TYPE REF TO); parámetros MCP grandes fallan silenciosamente; endpoint ADT `/ddic/tables/` no existe en ECC EHP8 |
+
+---
+
 ## Línea de Tiempo de Evolución del MCP Server
 
 El servidor MCP es un activo vivo que crece con cada caso real:
@@ -191,8 +213,9 @@ El servidor MCP es un activo vivo que crece con cada caso real:
 | **Actualizar FMs** | `sap_update_function_module_source` | CU-3 (5 min) | No podía escribir source de FMs |
 | **Crear transportes** | `sap_create_transport` | CU-8 | Necesidad de crear OTs |
 | **Syntax check** | `sap_syntax_check` | CU-7 | Activación pasó pero el código tenía errores de sintaxis |
+| **Upload desde archivo** | `sap_update_program_from_file` | CU-9 | Parámetros MCP grandes fallan silenciosamente (~500+ líneas) |
 
-**Total actual: 16 herramientas** — cada una agregada en respuesta a una necesidad real, probada inmediatamente en contexto productivo.
+**Total actual: 17 herramientas** — cada una agregada en respuesta a una necesidad real, probada inmediatamente en contexto productivo.
 
 ---
 
@@ -208,6 +231,7 @@ El servidor MCP es un activo vivo que crece con cada caso real:
 | `04-solid-patterns.md` | DIP con ZIF_, patrón DAO, FM como fachada OO, test doubles |
 | `06-sap-deploy-workflow.md` | Flujo controlado de deploy en 9 pasos, reglas de OT, limitaciones del MCP |
 | `07-mcp-server-python.md` | Estándares de código del MCP server, referencia de endpoints ADT |
+| `08-sap-system-tables.md` | Referencia de campos verificados de tablas de sistema (E070, E071, TADIR, etc.) |
 
 Estos archivos son la razón por la que Kiro genera código que parece escrito por alguien del equipo.
 
@@ -222,7 +246,8 @@ Estos archivos son la razón por la que Kiro genera código que parece escrito p
 | 3 | Enqueue Lock PPD (3 deploys) | Modificar + deploy + debug | ~4h | ~19 min | 92% |
 | 4 | Investigación Authority Check | Investigación de incidente | ~3.5h | ~6 min | 97% |
 | 7 | Refactor PROS Currency Rate | Code review + deploy | ~2h | ~8 min | 93% |
-| | **Total medido** | | **~14.5h** | **~52 min** | **~94%** |
+| 9 | Transport Checker (6 versiones) | Desarrollo nuevo + evolución MCP | ~4h | ~15 min | 94% |
+| | **Total medido** | | **~18.5h** | **~67 min** | **~94%** |
 
 ---
 
@@ -238,6 +263,8 @@ Estos archivos son la razón por la que Kiro genera código que parece escrito p
 | Analizar screenshots del debugger | Tomar decisiones de diseño |
 | Ejecutar syntax checks después del deploy | Interpretar warnings y decidir acción |
 | Listar órdenes de transporte | Crear OTs con el proyecto CTS correcto |
+| Evolucionar sus propias herramientas (MCP) | Identificar qué capacidad falta |
+| Interpretar resultados de ALV via screenshots | Diagnosticar falsos positivos vs errores reales |
 
 ---
 
@@ -256,6 +283,8 @@ Estos archivos son la razón por la que Kiro genera código que parece escrito p
 6. **El rol del desarrollador cambia de ejecutor a arquitecto** — el valor está en el criterio técnico, el conocimiento del negocio, y la capacidad de decir "esto no va a funcionar porque..."
 
 7. **Cada error se convierte en una lección permanente** — errores de sintaxis, incompatibilidades de tipos y problemas de deploy se documentan en los steering files para que no vuelvan a ocurrir.
+
+8. **La IA evoluciona sus propias herramientas** — cuando el MCP server no podía subir programas grandes, Kiro diagnosticó el problema, diseñó el workaround (`sap_update_program_from_file`), lo implementó en Python, y lo probó — todo en la misma sesión. El servidor MCP pasó de 16 a 17 herramientas orgánicamente.
 
 ---
 

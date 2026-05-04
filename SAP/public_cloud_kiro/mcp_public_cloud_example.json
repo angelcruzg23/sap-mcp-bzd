@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "sap-public-cloud": {
+      "command": "python",
+      "args": ["C:/ruta/a/mcp-adt/mcp_server.py"],
+      "env": {
+        "SAP_AUTH_TYPE": "jwt",
+        "SAP_URL": "https://<tenant-id>.abap.<region>.hana.ondemand.com",
+        "SAP_JWT_TOKEN": "<tu-jwt-token-aqui>",
+        "SAP_VERIFY_SSL": "true",
+        "SAP_TIMEOUT_DEFAULT": "45",
+        "SAP_TIMEOUT_CSRF": "15",
+        "SAP_TIMEOUT_LONG": "60"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
