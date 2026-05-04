@@ -1,7 +1,7 @@
 """
-SAP BZD MCP Server
-MCP Server en Python para conectar Kiro con SAP ECC BZD 130
-Usa ADT REST API (HTTP) — sin RFC, sin Docker, sin NW RFC SDK.
+SAP MCP Server (Multi-System)
+MCP Server en Python para conectar Kiro con sistemas SAP via ADT REST API.
+Soporta múltiples instancias (BZD, BZN, etc.) usando SAP_SYSTEM_ID.
 Transport: stdio (requerido por Kiro)
 """
 
@@ -16,14 +16,14 @@ from mcp import types
 from sap_client import SAPADTClient
 
 # ──────────────────────────────────────────────
-# Configuración de conexión SAP BZD
-# Puedes sobreescribir con variables de entorno
+# Configuración de conexión SAP
 # ──────────────────────────────────────────────
 SAP_HOST     = os.environ.get("SAP_HOST",     "fbpl08v010.holcimbp.net:8000")
 SAP_CLIENT   = os.environ.get("SAP_CLIENT",   "130")
 SAP_USER     = os.environ.get("SAP_USER",     "ANGECRUZ")
-SAP_PASSWORD = os.environ.get("SAP_PASSWORD", "")  # Se pasa por variable de entorno
+SAP_PASSWORD = os.environ.get("SAP_PASSWORD", "")
 SAP_SECURE   = os.environ.get("SAP_SECURE",   "false").lower() == "true"
+SAP_SYSTEM_ID = os.environ.get("SAP_SYSTEM_ID", "BZD")
 
 # Instancia global del cliente ADT
 sap = SAPADTClient(
@@ -35,9 +35,11 @@ sap = SAPADTClient(
 )
 
 # ──────────────────────────────────────────────
-# Crear el servidor MCP
+# Crear el servidor MCP con nombre dinámico
 # ──────────────────────────────────────────────
-server = Server("sap-bzd-mcp")
+server = Server(f"sap-{SAP_SYSTEM_ID.lower()}-mcp")
+
+SYS_LABEL = f"SAP {SAP_SYSTEM_ID} {SAP_CLIENT}"
 
 
 # ──────────────────────────────────────────────
@@ -48,7 +50,7 @@ async def list_tools() -> list[types.Tool]:
     return [
         types.Tool(
             name="sap_ping",
-            description="Verifica la conectividad con el sistema SAP BZD 130. Úsalo para confirmar que el servidor MCP puede hablar con SAP.",
+            description=f"Verifica la conectividad con el sistema {SYS_LABEL}. Úsalo para confirmar que el servidor MCP puede hablar con SAP.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -57,7 +59,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="sap_get_program_source",
-            description="Obtiene el código fuente ABAP de un programa o report (objetos tipo PROG). Ejemplo: ZREPORTE_VENTAS.",
+            description=f"Obtiene el código fuente ABAP de un programa o report (objetos tipo PROG) en {SYS_LABEL}. Ejemplo: ZREPORTE_VENTAS.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -71,7 +73,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="sap_get_class_source",
-            description="Obtiene el código fuente de una clase ABAP OO (ZCL_*, LCL_*, etc.).",
+            description=f"Obtiene el código fuente de una clase ABAP OO (ZCL_*, LCL_*, etc.) en {SYS_LABEL}.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -85,7 +87,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="sap_get_function_module_source",
-            description="Obtiene el código fuente de un Function Module ABAP. Necesitas el nombre del grupo de funciones y el nombre del FM.",
+            description=f"Obtiene el código fuente de un Function Module ABAP en {SYS_LABEL}. Necesitas el nombre del grupo de funciones y el nombre del FM.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -103,7 +105,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="sap_get_include_source",
-            description="Obtiene el código fuente de un INCLUDE ABAP (los includes son subprogramas referenciados con INCLUDE en un programa principal). Ejemplo: ZSDR_DAILY_INVOICE_REPORT_TOP, ZSDR_DAILY_INVOICE_REPORT_F01.",
+            description=f"Obtiene el código fuente de un INCLUDE ABAP en {SYS_LABEL}.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -117,7 +119,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="sap_search_objects",
-            description="Busca objetos ABAP en el repositorio de SAP BZD por nombre o patrón. Útil para encontrar Z* o Y* objetos.",
+            description=f"Busca objetos ABAP en el repositorio de {SYS_LABEL} por nombre o patrón. Útil para encontrar Z* o Y* objetos.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -136,7 +138,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="sap_get_table_definition",
-            description="Obtiene la definición de una tabla del diccionario ABAP (campos, tipos, longitudes).",
+            description=f"Obtiene la definición de una tabla del diccionario ABAP en {SYS_LABEL} (campos, tipos, longitudes).",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -150,7 +152,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="sap_check_adt_capabilities",
-            description="Lista todos los servicios ADT disponibles en SAP BZD. Útil para verificar qué operaciones soporta el sistema (lectura, escritura, activación, etc.).",
+            description=f"Lista todos los servicios ADT disponibles en {SYS_LABEL}. Útil para verificar qué operaciones soporta el sistema (lectura, escritura, activación, etc.).",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -159,7 +161,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="sap_test_endpoint",
-            description="Prueba un endpoint ADT específico para verificar si está disponible y responde. Útil para diagnóstico.",
+            description=f"Prueba un endpoint ADT específico en {SYS_LABEL} para verificar si está disponible y responde. Útil para diagnóstico.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -178,7 +180,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="sap_create_program",
-            description="Crea un programa ABAP nuevo en SAP BZD, escribe el código fuente y lo activa. Requiere nombre, descripción, paquete, orden de transporte y código fuente.",
+            description=f"Crea un programa ABAP nuevo en {SYS_LABEL}, escribe el código fuente y lo activa. Requiere nombre, descripción, paquete, orden de transporte y código fuente.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -208,7 +210,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="sap_update_program_source",
-            description="Actualiza el código fuente de un programa ABAP existente en SAP BZD. Hace lock, escribe y unlock.",
+            description=f"Actualiza el código fuente de un programa ABAP existente en {SYS_LABEL}. Hace lock, escribe y unlock.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -229,8 +231,30 @@ async def list_tools() -> list[types.Tool]:
             }
         ),
         types.Tool(
+            name="sap_update_program_from_file",
+            description=f"Actualiza el código fuente de un programa ABAP leyendo desde un archivo local del workspace en {SYS_LABEL}.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "program_name": {
+                        "type": "string",
+                        "description": "Nombre del programa existente en mayúsculas. Ej: ZR_SD_TRANSPORT_CHECKER"
+                    },
+                    "file_path": {
+                        "type": "string",
+                        "description": "Ruta al archivo .abap relativa al workspace. Ej: ZR_SD_TRANSPORT_CHECKER/ZR_SD_TRANSPORT_CHECKER.abap"
+                    },
+                    "transport": {
+                        "type": "string",
+                        "description": "Orden de transporte (opcional)"
+                    }
+                },
+                "required": ["program_name", "file_path"]
+            }
+        ),
+        types.Tool(
             name="sap_update_function_module_source",
-            description="Actualiza el código fuente de un Function Module ABAP existente en SAP BZD. Hace lock, escribe y unlock.",
+            description=f"Actualiza el código fuente de un Function Module ABAP existente en {SYS_LABEL}. Hace lock, escribe y unlock.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -256,7 +280,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="sap_create_transport",
-            description="Crea una orden de transporte (Workbench o Customizing Request) en SAP BZD. Retorna el número de OT y task creados.",
+            description=f"Crea una orden de transporte (Workbench o Customizing Request) en {SYS_LABEL}. Retorna el número de OT y task creados.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -280,7 +304,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="sap_activate_object",
-            description="Activa un objeto ABAP en SAP BZD (programa, clase, interfaz, etc.).",
+            description=f"Activa un objeto ABAP en {SYS_LABEL} (programa, clase, interfaz, etc.).",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -299,7 +323,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="sap_run_abap_unit",
-            description="Ejecuta ABAP Unit tests para un objeto ABAP en SAP BZD. Retorna los resultados de los tests.",
+            description=f"Ejecuta ABAP Unit tests para un objeto ABAP en {SYS_LABEL}. Retorna los resultados de los tests.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -313,16 +337,44 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="sap_syntax_check",
-            description="Ejecuta syntax check de un objeto ABAP en SAP BZD. Retorna errores y warnings de compilación. Usar DESPUÉS de subir código y ANTES de considerar el deploy como exitoso.",
+            description=f"Ejecuta syntax check de un objeto ABAP en {SYS_LABEL}. Retorna errores y warnings de compilación.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "object_url": {
                         "type": "string",
-                        "description": "URI ADT del objeto. Ej: /sap/bc/adt/programs/programs/zr_sd_quick_orders, /sap/bc/adt/functions/groups/zsd_pros_int/fmodules/zsd_pros_currency_rate_get, /sap/bc/adt/oo/classes/zcl_sd_stock_query"
+                        "description": "URI ADT del objeto. Ej: /sap/bc/adt/programs/programs/zr_sd_quick_orders"
                     }
                 },
                 "required": ["object_url"]
+            }
+        ),
+        types.Tool(
+            name="sap_list_transports",
+            description=f"Lista las órdenes de transporte modificables (abiertas) en {SYS_LABEL}. Opcionalmente filtra por usuario.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "user": {
+                        "type": "string",
+                        "description": "Usuario SAP para filtrar (opcional). Si se omite, muestra todas las visibles para el usuario conectado."
+                    }
+                },
+                "required": []
+            }
+        ),
+        types.Tool(
+            name="sap_get_transport_details",
+            description=f"Obtiene los detalles y objetos contenidos en una orden de transporte específica en {SYS_LABEL}.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "transport_number": {
+                        "type": "string",
+                        "description": "Número de la orden de transporte. Ej: BZDK924618"
+                    }
+                },
+                "required": ["transport_number"]
             }
         ),
     ]
@@ -417,6 +469,15 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         result = sap.update_program_source(prog, src, tr)
         return respond(result)
 
+    elif name == "sap_update_program_from_file":
+        prog = arguments.get("program_name", "").upper()
+        fpath = arguments.get("file_path", "")
+        tr = arguments.get("transport", "")
+        if not prog or not fpath:
+            return respond({"ok": False, "message": "program_name y file_path son requeridos"})
+        result = sap.update_program_from_file(prog, fpath, tr)
+        return respond(result)
+
     elif name == "sap_update_function_module_source":
         fg = arguments.get("function_group", "").upper()
         fm = arguments.get("function_name", "").upper()
@@ -456,6 +517,18 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         if not obj_url:
             return respond({"ok": False, "message": "object_url es requerido"})
         result = sap.syntax_check(obj_url)
+        return respond(result)
+
+    elif name == "sap_list_transports":
+        user = arguments.get("user", "")
+        result = sap.list_transports(user)
+        return respond(result)
+
+    elif name == "sap_get_transport_details":
+        tr = arguments.get("transport_number", "").upper()
+        if not tr:
+            return respond({"ok": False, "message": "transport_number es requerido"})
+        result = sap.get_transport_details(tr)
         return respond(result)
 
     else:

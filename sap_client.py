@@ -405,6 +405,37 @@ class SAPADTClient:
         except Exception as e:
             return {"ok": False, "message": str(e)}
 
+    def update_program_from_file(self, program_name: str, file_path: str,
+                                  transport: str = "") -> dict:
+        """Lee código fuente desde un archivo local y lo sube a SAP.
+        Workaround para el límite de tamaño de parámetros MCP."""
+        try:
+            import os
+            if not os.path.isabs(file_path):
+                # Resolver relativo al directorio del MCP server
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                file_path = os.path.join(base_dir, file_path)
+
+            if not os.path.exists(file_path):
+                return {"ok": False, "message": f"Archivo no encontrado: {file_path}"}
+
+            with open(file_path, "r", encoding="utf-8") as f:
+                source_code = f.read()
+
+            if not source_code.strip():
+                return {"ok": False, "message": f"Archivo vacío: {file_path}"}
+
+            line_count = source_code.count("\n") + 1
+            result = self.update_program_source(program_name, source_code, transport)
+            if result.get("ok"):
+                result["file_path"] = file_path
+                result["lines_uploaded"] = line_count
+                result["message"] = f"Código fuente actualizado desde archivo ({line_count} líneas)"
+            return result
+
+        except Exception as e:
+            return {"ok": False, "message": str(e)}
+
     def update_function_module_source(self, function_group: str, function_name: str,
                                       source_code: str, transport: str = "") -> dict:
         """Actualiza el código fuente de un Function Module existente."""
@@ -760,5 +791,128 @@ class SAPADTClient:
                     "message": resp.text[:500],
                 }
 
+        except Exception as e:
+            return {"ok": False, "message": str(e)}
+
+    def get_transport_details(self, transport_number: str) -> dict:
+        """Obtiene los detalles y objetos de una orden de transporte específica."""
+        transport_number = transport_number.upper()
+        try:
+            url = self._url("/sap/bc/adt/cts/transportrequests")
+            resp = self.session.get(url, timeout=30)
+            if resp.status_code != 200:
+                return {"ok": False, "status": resp.status_code, "message": resp.text[:500]}
+
+            try:
+                root = ET.fromstring(resp.text)
+                # Buscar el request específico
+                for req in root.iter():
+                    tag = req.tag.split("}")[-1] if "}" in req.tag else req.tag
+                    if tag == "request":
+                        number = req.get("{http://www.sap.com/cts/adt/tm}number", "")
+                        if number == transport_number:
+                            owner = req.get("{http://www.sap.com/cts/adt/tm}owner", "")
+                            desc = req.get("{http://www.sap.com/cts/adt/tm}desc", "")
+                            status = req.get("{http://www.sap.com/cts/adt/tm}status", "")
+                            target = req.get("{http://www.sap.com/cts/adt/tm}target", "")
+
+                            # Buscar tasks y objetos dentro del request
+                            tasks = []
+                            for child in req.iter():
+                                child_tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+                                if child_tag == "task":
+                                    task_number = child.get("{http://www.sap.com/cts/adt/tm}number", "")
+                                    task_owner = child.get("{http://www.sap.com/cts/adt/tm}owner", "")
+                                    task_desc = child.get("{http://www.sap.com/cts/adt/tm}desc", "")
+                                    task_status = child.get("{http://www.sap.com/cts/adt/tm}status", "")
+
+                                    # Buscar objetos dentro de la task
+                                    objects = []
+                                    for obj in child.iter():
+                                        obj_tag = obj.tag.split("}")[-1] if "}" in obj.tag else obj.tag
+                                        if obj_tag == "abapObject":
+                                            obj_name = obj.get("{http://www.sap.com/cts/adt/tm}name",
+                                                             obj.get("{http://www.sap.com/adt/core}name", ""))
+                                            obj_type = obj.get("{http://www.sap.com/cts/adt/tm}type",
+                                                             obj.get("{http://www.sap.com/adt/core}type", ""))
+                                            obj_pgmid = obj.get("{http://www.sap.com/cts/adt/tm}pgmid", "")
+                                            obj_lock = obj.get("{http://www.sap.com/cts/adt/tm}lockflag", "")
+                                            if obj_name:
+                                                objects.append({
+                                                    "name": obj_name,
+                                                    "type": obj_type,
+                                                    "pgmid": obj_pgmid,
+                                                    "locked": obj_lock,
+                                                })
+
+                                    tasks.append({
+                                        "number": task_number,
+                                        "owner": task_owner,
+                                        "description": task_desc,
+                                        "status": task_status,
+                                        "objects": objects,
+                                    })
+
+                            return {
+                                "ok": True,
+                                "transport": transport_number,
+                                "owner": owner,
+                                "description": desc,
+                                "status": status,
+                                "target": target,
+                                "tasks": tasks,
+                            }
+
+                return {"ok": False, "message": f"OT {transport_number} no encontrada en la lista de transportes visibles"}
+
+            except ET.ParseError as e:
+                return {"ok": False, "message": f"Error parseando XML: {str(e)}"}
+
+        except Exception as e:
+            return {"ok": False, "message": str(e)}
+
+    def list_transports(self, user: str = "") -> dict:
+        """Lista las órdenes de transporte modificables del usuario actual o uno específico."""
+        try:
+            url = self._url("/sap/bc/adt/cts/transportrequests")
+            resp = self.session.get(url, timeout=30)
+            if resp.status_code != 200:
+                return {"ok": False, "status": resp.status_code, "message": resp.text[:500]}
+
+            # Parsear XML de respuesta
+            transports = []
+            try:
+                root = ET.fromstring(resp.text)
+                ns = {
+                    "tm": "http://www.sap.com/cts/adt/tm",
+                    "adtcore": "http://www.sap.com/adt/core",
+                }
+                # Buscar todos los requests
+                for req in root.iter():
+                    tag = req.tag.split("}")[-1] if "}" in req.tag else req.tag
+                    if tag == "request":
+                        number = req.get("{http://www.sap.com/cts/adt/tm}number", "")
+                        owner = req.get("{http://www.sap.com/cts/adt/tm}owner", "")
+                        desc = req.get("{http://www.sap.com/cts/adt/tm}desc", "")
+                        status = req.get("{http://www.sap.com/cts/adt/tm}status", "")
+                        target = req.get("{http://www.sap.com/cts/adt/tm}target", "")
+                        # Filtrar por usuario si se especificó
+                        if user and owner.upper() != user.upper():
+                            continue
+                        transports.append({
+                            "number": number,
+                            "owner": owner,
+                            "description": desc,
+                            "status": status,
+                            "target": target,
+                        })
+            except ET.ParseError:
+                return {"ok": False, "message": "Error parseando XML de transports"}
+
+            return {
+                "ok": True,
+                "count": len(transports),
+                "transports": transports,
+            }
         except Exception as e:
             return {"ok": False, "message": str(e)}
