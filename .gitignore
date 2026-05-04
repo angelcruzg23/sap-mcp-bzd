@@ -12,6 +12,12 @@ package-lock.json
 .kiro/mcp.json
 .kiro/settings/
 
+# Configuración personal del usuario (contiene credenciales)
+user-config.json
+
+# Scripts de prueba
+test-wizard.ps1
+
 # VS Code
 .vscode/
 

@@ -1,0 +1,39 @@
+{
+  "user": {
+    "name": "Juan Perez",
+    "email": "juan.perez@amrize.com",
+    "team": "Business Envelope"
+  },
+  "systems": {
+    "BZD": {
+      "enabled": true,
+      "username": "JPEREZ",
+      "password_env_var": "SAP_PASSWORD_BZD",
+      "default": true
+    },
+    "DEV": {
+      "enabled": false,
+      "username": "",
+      "password_env_var": "SAP_PASSWORD_DEV",
+      "default": false
+    },
+    "BZX": {
+      "enabled": false,
+      "username": "",
+      "password_env_var": "SAP_PASSWORD_BZX",
+      "default": false
+    },
+    "BZN": {
+      "enabled": true,
+      "username": "JPEREZ",
+      "password_env_var": "SAP_PASSWORD_BZN",
+      "default": false
+    }
+  },
+  "preferences": {
+    "auto_activate": true,
+    "run_syntax_check_after_upload": true,
+    "auto_format_on_save": true,
+    "default_package": "ZDEV_SD"
+  }
+}

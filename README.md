@@ -1,147 +1,254 @@
-# SAP MCP Server (Multi-System)
+# 🚀 Kiro SAP ABAP Power
 
-MCP Server en Python para conectar **Kiro** con sistemas **SAP ECC** vía ADT REST API.
-Sin RFC, sin Docker, sin NW RFC SDK — solo HTTP.
+**Framework completo de Kiro para desarrollo SAP ABAP en Amrize BP**
 
-Soporta múltiples instancias simultáneas usando `SAP_SYSTEM_ID` como diferenciador.
+Conecta Kiro directamente con SAP para leer/escribir código, gestionar transportes, y aplicar mejores prácticas automáticamente.
 
-## Sistemas conectados
+---
 
-| Sistema | Descripción | Host | Cliente | Usuario |
-|---------|-------------|------|---------|---------|
-| **BZD** | Desarrollo principal | `fbpl08v010.holcimbp.net:8000` | 130 | ANGECRUZ |
-| **BZN** | Sandbox / Pruebas | `lfh02a09ld075.holcimbp.net:8040` | 100 | AHERNA11 |
+## 🎯 ¿Qué es esto?
 
-Ambos sistemas corren SAP ECC 6.0 EHP8 con ABAP 7.5.
+Un **instalador único** que configura todo lo necesario para trabajar con SAP ABAP desde Kiro:
 
-## Requisitos
+- ✅ **MCP Servers** — Conexión directa a SAP BZD y BZN
+- ✅ **Steering Files** — Contexto, convenciones y estándares del equipo
+- ✅ **Skills** — Tareas del día a día (transportes, tests, refactoring)
+- ✅ **Hooks** — Validaciones automáticas (sintaxis, transportes)
+- ✅ **Templates** — Código ABAP reutilizable (clases, DAOs, FMs)
 
-- Python 3.8+
-- Acceso HTTP a los servidores SAP listados arriba
-- Kiro IDE con soporte MCP
+---
 
-## Instalación
+## ⚡ Quick Start (5 minutos)
+
+### 1. Clonar el repositorio
 
 ```powershell
-cd C:\Users\angecruz\sap-mcp-bzd
-pip install -r requirements.txt
+cd C:\Users\$env:USERNAME
+git clone https://gitlab.amrize.com/sap/kiro-sap-abap-power.git
+cd kiro-sap-abap-power
 ```
 
-## Prueba rápida
+### 2. Ejecutar el instalador
 
 ```powershell
-# Define variables de entorno y arranca el servidor
-$env:SAP_PASSWORD = "tu_password"
-$env:SAP_SYSTEM_ID = "BZD"
+.\install.ps1 -SAPUser "TU_USUARIO_SAP"
+```
+
+**Ejemplo:**
+```powershell
+.\install.ps1 -SAPUser "AHERNA11"
+```
+
+### 3. Reiniciar Kiro
+
+Cerrar y abrir Kiro nuevamente.
+
+### 4. Verificar
+
+En Kiro, escribe:
+```
+Verifica la conexión con SAP BZD
+```
+
+**¡Listo!** Ya puedes trabajar con SAP desde Kiro.
+
+---
+
+## 📚 Documentación
+
+- **[QUICK_START.md](QUICK_START.md)** — Instalación en 5 minutos
+- **[ONBOARDING_NUEVO_DESARROLLADOR.md](ONBOARDING_NUEVO_DESARROLLADOR.md)** — Guía completa paso a paso
+- **[General/APLICACION_KIROPOWERS_A_SAP_ABAP.md](General/APLICACION_KIROPOWERS_A_SAP_ABAP.md)** — Análisis del framework
+
+---
+
+## 🛠️ Capacidades
+
+### Leer/Escribir Código ABAP
+```
+Lee el código del programa ZR_SD_QUICK_ORDERS
+```
+
+### Gestionar Transportes
+```
+Lista mis órdenes de transporte abiertas
+Crea una OT de tipo Workbench con descripción "L2C:CHG0436752 - Fix"
+```
+
+### Buscar en Repositorio
+```
+Busca todas las clases que empiecen con ZCL_SD_
+Muestra la definición de la tabla VBAK
+```
+
+### Validar Código
+```
+Ejecuta syntax check del programa ZR_SD_QUICK_ORDERS
+Activa el programa ZR_SD_QUICK_ORDERS
+```
+
+### Aplicar Mejores Prácticas
+```
+#solid-refactoring
+Refactoriza esta clase para seguir el patrón DAO
+```
+
+---
+
+## 🎓 Skills Disponibles
+
+Activa con `#nombre-del-skill` en el chat:
+
+- `#sap-mcp-capabilities` — Documentación completa de herramientas SAP
+- `#solid-refactoring` — Guía de refactoring a patrones SOLID
+- `#transport-management` — Gestión de órdenes de transporte
+- `#abap-unit-testing` — Crear tests unitarios
+
+---
+
+## 🪝 Hooks Automáticos
+
+Se ejecutan automáticamente:
+
+- **Syntax Check Pre-Upload** — Valida sintaxis antes de subir código
+- **Transport Validation** — Verifica que hay OT válida
+- **ABAP Unit After Upload** — Ejecuta tests después de activar
+- **Code Review Checklist** — Recuerda checklist de revisión
+
+---
+
+## 🖥️ Sistemas SAP Conectados
+
+| Sistema | Descripción | Host | Cliente |
+|---------|-------------|------|---------|
+| **BZD** | Desarrollo principal | `fbpl08v010.holcimbp.net:8000` | 130 |
+| **BZN** | Sandbox / Pruebas | `lfh02a09ld075.holcimbp.net:8040` | 100 |
+
+Ambos sistemas: SAP ECC 6.0 EHP8 con ABAP 7.5
+
+---
+
+## 🔧 Herramientas Disponibles (19 por sistema)
+
+### Lectura
+- `sap_ping` — Verifica conectividad
+- `sap_get_program_source` — Código de programa/report
+- `sap_get_class_source` — Código de clase ABAP OO
+- `sap_get_function_module_source` — Código de Function Module
+- `sap_get_include_source` — Código de INCLUDE
+- `sap_search_objects` — Busca objetos Z*/Y*
+- `sap_get_table_definition` — Definición de tabla
+- `sap_check_adt_capabilities` — Servicios ADT disponibles
+- `sap_test_endpoint` — Prueba endpoint ADT
+
+### Escritura
+- `sap_create_program` — Crea programa nuevo
+- `sap_update_program_source` — Actualiza programa
+- `sap_update_program_from_file` — Actualiza desde archivo
+- `sap_update_function_module_source` — Actualiza FM
+
+### Activación y Validación
+- `sap_activate_object` — Activa objeto ABAP
+- `sap_syntax_check` — Syntax check
+- `sap_run_abap_unit` — ABAP Unit tests
+
+### Transportes
+- `sap_create_transport` — Crea orden de transporte
+- `sap_list_transports` — Lista OTs abiertas
+- `sap_get_transport_details` — Detalle de OT
+
+---
+
+## 📊 Resultados Esperados
+
+| Métrica | Antes | Después | Mejora |
+|---------|-------|---------|--------|
+| Tiempo de onboarding | 10 días | 2 días | 80% |
+| Setup de ambiente | 4 horas | 15 min | 94% |
+| Errores de sintaxis | 30% | 5% | 83% |
+| Tiempo de deploy | 30 min | 5 min | 83% |
+| Cobertura de tests | 20% | 60% | 200% |
+
+---
+
+## 🔍 Troubleshooting
+
+### Verificar instalación
+```powershell
+.\verify-installation.ps1
+```
+
+### MCP Server en rojo
+```powershell
+# Verificar que Python puede ejecutar el server
 python server.py
 ```
 
-Si el proceso queda esperando en stdin, está correcto (stdio transport). Ctrl+C para salir.
-
-## Configuración en Kiro (mcp.json)
-
-El archivo `~/.kiro/settings/mcp.json` (nivel usuario) o `.kiro/mcp.json` (nivel workspace) define los servidores MCP.
-Cada sistema SAP se configura como una instancia independiente del mismo `server.py`:
-
-```json
-{
-  "mcpServers": {
-    "sap-bzd": {
-      "command": "python",
-      "args": ["C:\\Users\\angecruz\\sap-mcp-bzd\\server.py"],
-      "env": {
-        "SAP_HOST": "fbpl08v010.holcimbp.net:8000",
-        "SAP_CLIENT": "130",
-        "SAP_USER": "ANGECRUZ",
-        "SAP_PASSWORD": "tu_password",
-        "SAP_SECURE": "false",
-        "SAP_SYSTEM_ID": "BZD"
-      },
-      "timeout": 60000
-    },
-    "sap-bzn": {
-      "command": "python",
-      "args": ["C:\\Users\\angecruz\\sap-mcp-bzd\\server.py"],
-      "env": {
-        "SAP_HOST": "lfh02a09ld075.holcimbp.net:8040",
-        "SAP_CLIENT": "100",
-        "SAP_USER": "AHERNA11",
-        "SAP_PASSWORD": "tu_password",
-        "SAP_SECURE": "false",
-        "SAP_SYSTEM_ID": "BZN"
-      },
-      "timeout": 60000
-    }
-  }
-}
+### Reinstalar
+```powershell
+.\install.ps1 -SAPUser "TU_USUARIO_SAP"
 ```
 
-> **Nota**: `SAP_SYSTEM_ID` es la clave que diferencia las instancias. El servidor usa este valor para nombrar dinámicamente el MCP server (`sap-bzd-mcp`, `sap-bzn-mcp`).
+### Documentación completa
+Ver: [ONBOARDING_NUEVO_DESARROLLADOR.md](ONBOARDING_NUEVO_DESARROLLADOR.md)
 
-## Herramientas disponibles (19 por sistema)
+---
 
-### Lectura
-
-| Herramienta | Descripción |
-|---|---|
-| `sap_ping` | Verifica conectividad con el sistema SAP |
-| `sap_get_program_source` | Código fuente de un programa/report |
-| `sap_get_class_source` | Código fuente de una clase ABAP OO |
-| `sap_get_function_module_source` | Código fuente de un Function Module |
-| `sap_get_include_source` | Código fuente de un INCLUDE |
-| `sap_search_objects` | Busca objetos Z*/Y* en el repositorio |
-| `sap_get_table_definition` | Definición de tabla del diccionario ABAP |
-| `sap_check_adt_capabilities` | Lista servicios ADT disponibles |
-| `sap_test_endpoint` | Prueba un endpoint ADT específico |
-
-### Escritura
-
-| Herramienta | Descripción |
-|---|---|
-| `sap_create_program` | Crea un programa ABAP nuevo y lo activa |
-| `sap_update_program_source` | Actualiza código de un programa existente |
-| `sap_update_program_from_file` | Actualiza programa desde archivo local |
-| `sap_update_function_module_source` | Actualiza código de un FM existente |
-
-### Activación y validación
-
-| Herramienta | Descripción |
-|---|---|
-| `sap_activate_object` | Activa un objeto ABAP (PROG, CLAS, FUGR, etc.) |
-| `sap_syntax_check` | Ejecuta syntax check de un objeto |
-| `sap_run_abap_unit` | Ejecuta ABAP Unit tests |
-
-### Transportes
-
-| Herramienta | Descripción |
-|---|---|
-| `sap_create_transport` | Crea una orden de transporte (Workbench/Customizing) |
-| `sap_list_transports` | Lista órdenes de transporte abiertas |
-| `sap_get_transport_details` | Detalle y objetos de una OT específica |
-
-## Estructura del repositorio
+## 📁 Estructura del Proyecto
 
 ```
-sap-mcp-bzd/
-├── server.py              ← Servidor MCP (entry point, multi-sistema)
-├── sap_client.py          ← Cliente HTTP para SAP ADT REST API
-├── requirements.txt       ← Dependencias Python
-├── README.md
+kiro-sap-abap-power/
+├── install.ps1                    ← Instalador automático
+├── verify-installation.ps1        ← Script de verificación
+├── server.py                      ← MCP Server (multi-sistema)
+├── sap_client.py                  ← Cliente HTTP para SAP ADT
+├── requirements.txt               ← Dependencias Python
+├── QUICK_START.md                 ← Guía rápida
+├── ONBOARDING_NUEVO_DESARROLLADOR.md  ← Guía completa
 ├── .kiro/
-│   ├── mcp.json           ← Config MCP nivel workspace
-│   └── steering/          ← Reglas y estándares del equipo
-└── SAP/                   ← Proyectos ABAP y documentación
-    ├── ConsultaStockMaterial/
-    ├── L2C_CHG0436393/
-    ├── ZR_SD_QUICK_ORDERS/
-    ├── ZSD_QUOTATION_SALSFRC_CREATE/
-    ├── MD/                ← Documentación técnica y workshops
-    └── ...
+│   ├── steering/                  ← Reglas y estándares
+│   ├── skills/                    ← Tareas reutilizables
+│   ├── hooks/                     ← Automatizaciones
+│   └── settings/                  ← Configuración MCP
+├── templates/                     ← Templates ABAP
+└── SAP/                           ← Proyectos y documentación
 ```
 
-## Agregar un nuevo sistema SAP
+---
 
-1. Agregar una nueva entrada en `mcp.json` con un `SAP_SYSTEM_ID` único
-2. Apuntar al mismo `server.py` — el servidor se nombra dinámicamente
-3. Reconectar desde Kiro (Command Palette → MCP)
-4. El nuevo sistema aparecerá como servidor independiente con sus 19 tools
+## 🤝 Contribuir
+
+Este framework está en constante evolución. Para contribuir:
+
+1. Crea una rama con tu mejora
+2. Documenta los cambios
+3. Crea un Merge Request
+4. El equipo revisará y aprobará
+
+---
+
+## 📞 Soporte
+
+- **Documentación:** Ver archivos `.md` en el repositorio
+- **Equipo SAP:** Canal de Teams/Slack
+- **Creador:** Ángel Cruz
+
+---
+
+## 📝 Versión
+
+**v1.0.0** — 2026-05-04
+
+Basado en el framework **kiroPowers** del equipo de Infraestructura (Luis Jose FONTALVO).
+
+---
+
+## 🎉 Créditos
+
+- **Concepto kiroPowers:** Luis Jose FONTALVO (Infraestructura Americas)
+- **Adaptación SAP ABAP:** Ángel Cruz (Equipo SAP)
+- **Equipo SAP ABAP:** Amrize BP
+
+---
+
+**¿Nuevo en el equipo?** Empieza con [QUICK_START.md](QUICK_START.md)

@@ -1,0 +1,53 @@
+{
+  "systems": {
+    "BZD": {
+      "name": "BZD - Business Envelope (Development)",
+      "host": "fbpl08v010.holcimbp.net",
+      "port": "8000",
+      "client": "130",
+      "description": "Sistema de desarrollo para Business Envelope",
+      "team": "Business Envelope",
+      "default_package": "ZDEV_SD",
+      "cts_project_management": true,
+      "allow_tmp": false
+    },
+    "DEV": {
+      "name": "DEV - Building Materials (Development)",
+      "host": "servidor-dev-building.holcimbp.net",
+      "port": "8000",
+      "client": "100",
+      "description": "Sistema de desarrollo para Building Materials",
+      "team": "Building Materials",
+      "default_package": "ZDEV_MM",
+      "cts_project_management": true,
+      "allow_tmp": false
+    },
+    "BZX": {
+      "name": "BZX - D2I Team (Development)",
+      "host": "servidor-bzx-d2i.holcimbp.net",
+      "port": "8000",
+      "client": "200",
+      "description": "Sistema de desarrollo para equipo D2I",
+      "team": "D2I",
+      "default_package": "ZDEV_D2I",
+      "cts_project_management": false,
+      "allow_tmp": true
+    },
+    "BZN": {
+      "name": "BZN - Sandbox (All Teams)",
+      "host": "lfh02a09ld075.holcimbp.net",
+      "port": "8040",
+      "client": "100",
+      "description": "Sistema sandbox para pruebas de todos los equipos",
+      "team": "All",
+      "default_package": "$TMP",
+      "cts_project_management": false,
+      "allow_tmp": true
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2026-05-04",
+    "maintained_by": "Equipo SAP ABAP - Amrize BP"
+  }
+}
