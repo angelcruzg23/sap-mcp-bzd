@@ -1,7 +1,7 @@
 # ============================================================================
-# Kiro SAP ABAP Power - Setup Wizard (Asistente de Configuración)
+# Kiro SAP ABAP Power - Setup Wizard (Asistente de Configuracion)
 # ============================================================================
-# Descripción: Asistente interactivo para configurar múltiples sistemas SAP
+# Descripcion: Asistente interactivo para configurar multiples sistemas SAP
 # Uso: .\setup-wizard.ps1
 # ============================================================================
 
@@ -17,17 +17,17 @@ $ColorPrompt = "Magenta"
 function Show-Banner {
     Clear-Host
     Write-Host ""
-    Write-Host "╔════════════════════════════════════════════════════════════════╗" -ForegroundColor $ColorInfo
-    Write-Host "║                                                                ║" -ForegroundColor $ColorInfo
-    Write-Host "║       Kiro SAP ABAP Power - Asistente de Configuración        ║" -ForegroundColor $ColorInfo
-    Write-Host "║                    Amrize BP - 2026                            ║" -ForegroundColor $ColorInfo
-    Write-Host "║                                                                ║" -ForegroundColor $ColorInfo
-    Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor $ColorInfo
+    Write-Host "================================================================" -ForegroundColor $ColorInfo
+    Write-Host "                                                                " -ForegroundColor $ColorInfo
+    Write-Host "       Kiro SAP ABAP Power - Asistente de Configuracion        " -ForegroundColor $ColorInfo
+    Write-Host "                    Amrize BP - 2026                            " -ForegroundColor $ColorInfo
+    Write-Host "                                                                " -ForegroundColor $ColorInfo
+    Write-Host "================================================================" -ForegroundColor $ColorInfo
     Write-Host ""
 }
 
 # ============================================================================
-# Función: Leer configuración de sistemas disponibles
+# Funcion: Leer configuracion de sistemas disponibles
 # ============================================================================
 function Get-AvailableSystems {
     if (Test-Path "config-systems.json") {
@@ -35,17 +35,17 @@ function Get-AvailableSystems {
             $config = Get-Content "config-systems.json" | ConvertFrom-Json
             return $config.systems
         } catch {
-            Write-Host "⚠ Error leyendo config-systems.json: $_" -ForegroundColor $ColorWarning
+            Write-Host "[!] Error leyendo config-systems.json: $_" -ForegroundColor $ColorWarning
             return $null
         }
     } else {
-        Write-Host "⚠ Archivo config-systems.json no encontrado" -ForegroundColor $ColorWarning
+        Write-Host "[!] Archivo config-systems.json no encontrado" -ForegroundColor $ColorWarning
         return $null
     }
 }
 
 # ============================================================================
-# Función: Mostrar sistemas disponibles
+# Funcion: Mostrar sistemas disponibles
 # ============================================================================
 function Show-AvailableSystems {
     param($Systems)
@@ -76,7 +76,7 @@ function Show-AvailableSystems {
 }
 
 # ============================================================================
-# Función: Solicitar información del usuario
+# Funcion: Solicitar informacion del usuario
 # ============================================================================
 function Get-UserInfo {
     Write-Host "[Usuario] Informacion del usuario" -ForegroundColor $ColorInfo
@@ -93,7 +93,7 @@ function Get-UserInfo {
     Write-Host "    [4] Otro" -ForegroundColor $ColorSuccess
     Write-Host ""
     
-    $teamChoice = Read-Host "  Opción"
+    $teamChoice = Read-Host "  Opcion"
     
     $team = switch ($teamChoice) {
         "1" { "Business Envelope" }
@@ -111,7 +111,7 @@ function Get-UserInfo {
 }
 
 # ============================================================================
-# Función: Configurar un sistema SAP
+# Funcion: Configurar un sistema SAP
 # ============================================================================
 function Configure-SAPSystem {
     param(
@@ -121,14 +121,14 @@ function Configure-SAPSystem {
     )
     
     Write-Host ""
-    Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor $ColorInfo
+    Write-Host "================================================================" -ForegroundColor $ColorInfo
     Write-Host "  Configurando: $SystemKey - $($SystemInfo.name)" -ForegroundColor $ColorPrompt
-    Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor $ColorInfo
+    Write-Host "================================================================" -ForegroundColor $ColorInfo
     Write-Host ""
     
     # Preguntar si quiere configurar este sistema
     if (-not $IsFirst) {
-        $configure = Read-Host "  ¿Deseas configurar este sistema? (S/N)"
+        $configure = Read-Host "  Deseas configurar este sistema? (S/N)"
         if ($configure -ne "S" -and $configure -ne "s") {
             return $null
         }
@@ -138,7 +138,7 @@ function Configure-SAPSystem {
     $username = Read-Host "  Usuario SAP para $SystemKey"
     
     # Solicitar password
-    Write-Host "  Password SAP para $SystemKey (se guardará de forma segura)" -ForegroundColor $ColorWarning
+    Write-Host "  Password SAP para $SystemKey (se guardara de forma segura)" -ForegroundColor $ColorWarning
     $securePassword = Read-Host "  Password" -AsSecureString
     $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
     $password = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
@@ -149,7 +149,7 @@ function Configure-SAPSystem {
         $isDefault = $true
         Write-Host "  [OK] Este sera tu sistema por defecto" -ForegroundColor $ColorSuccess
     } else {
-        $defaultChoice = Read-Host "  ¿Usar como sistema por defecto? (S/N)"
+        $defaultChoice = Read-Host "  Usar como sistema por defecto? (S/N)"
         $isDefault = ($defaultChoice -eq "S" -or $defaultChoice -eq "s")
     }
     
@@ -163,7 +163,7 @@ function Configure-SAPSystem {
 }
 
 # ============================================================================
-# Función: Guardar configuración de usuario
+# Funcion: Guardar configuracion de usuario
 # ============================================================================
 function Save-UserConfig {
     param(
@@ -203,7 +203,7 @@ function Save-UserConfig {
 }
 
 # ============================================================================
-# Función: Configurar variables de entorno
+# Funcion: Configurar variables de entorno
 # ============================================================================
 function Set-EnvironmentVariables {
     param([hashtable]$SystemsConfig)
@@ -218,7 +218,7 @@ function Set-EnvironmentVariables {
                 # Configurar a nivel de usuario (permanente)
                 [System.Environment]::SetEnvironmentVariable($config.PasswordEnvVar, $config.Password, 'User')
                 
-                # También configurar para la sesión actual
+                # Tambien configurar para la sesion actual
                 Set-Item -Path "env:$($config.PasswordEnvVar)" -Value $config.Password
                 
                 Write-Host "  [OK] $($config.PasswordEnvVar) configurado" -ForegroundColor $ColorSuccess
@@ -230,7 +230,7 @@ function Set-EnvironmentVariables {
 }
 
 # ============================================================================
-# Función: Generar configuración de MCP
+# Funcion: Generar configuracion de MCP
 # ============================================================================
 function Generate-MCPConfig {
     param(
@@ -269,7 +269,7 @@ function Generate-MCPConfig {
         }
     }
     
-    # Guardar configuración
+    # Guardar configuracion
     $mcpConfigPath = "$HOME\.kiro\settings"
     $mcpConfigFile = "$mcpConfigPath\mcp.json"
     
@@ -296,7 +296,7 @@ function Generate-MCPConfig {
 }
 
 # ============================================================================
-# Función: Verificar conexión a sistemas
+# Funcion: Verificar conexion a sistemas
 # ============================================================================
 function Test-SystemConnections {
     param(
@@ -317,20 +317,27 @@ function Test-SystemConnections {
             
             Write-Host "  Probando $key..." -ForegroundColor $ColorInfo
             
+            $host_value = $systemInfo.host
+            $port_value = $systemInfo.port
+            $client_value = $systemInfo.client
+            $user_value = $userConfig.Username
+            $password_value = $userConfig.Password
+            
             $testScript = @"
 import requests
 from requests.auth import HTTPBasicAuth
 import sys
 
-host = '$($systemInfo.host)'
-port = '$($systemInfo.port)'
-client = '$($systemInfo.client)'
-user = '$($userConfig.Username)'
-password = '$($userConfig.Password)'
+host = '$host_value'
+port = '$port_value'
+client = '$client_value'
+user = '$user_value'
+password = '$password_value'
 
 try:
+    url = 'http://' + host + ':' + port + '/sap/bc/adt/discovery'
     response = requests.get(
-        f'http://{host}:{port}/sap/bc/adt/discovery',
+        url,
         auth=HTTPBasicAuth(user, password),
         headers={'sap-client': client},
         timeout=10
@@ -339,10 +346,10 @@ try:
         print('SUCCESS')
         sys.exit(0)
     else:
-        print(f'ERROR:{response.status_code}')
+        print('ERROR:' + str(response.status_code))
         sys.exit(1)
 except Exception as e:
-    print(f'ERROR:{str(e)}')
+    print('ERROR:' + str(e))
     sys.exit(1)
 "@
             
@@ -366,7 +373,7 @@ except Exception as e:
 }
 
 # ============================================================================
-# Función: Copiar archivos del framework
+# Funcion: Copiar archivos del framework
 # ============================================================================
 function Copy-FrameworkFiles {
     Write-Host ""
@@ -418,7 +425,7 @@ function Copy-FrameworkFiles {
 }
 
 # ============================================================================
-# Función: Mostrar resumen final
+# Funcion: Mostrar resumen final
 # ============================================================================
 function Show-FinalSummary {
     param(
@@ -428,7 +435,7 @@ function Show-FinalSummary {
     )
     
     Write-Host ""
-    Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor $ColorInfo
+    Write-Host "================================================================" -ForegroundColor $ColorInfo
     Write-Host ""
     
     if ($AllTestsPassed) {
@@ -465,7 +472,7 @@ function Show-FinalSummary {
     Write-Host ""
     Write-Host "[i] Para reconfigurar, ejecuta nuevamente: .\setup-wizard.ps1" -ForegroundColor $ColorInfo
     Write-Host ""
-    Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor $ColorInfo
+    Write-Host "================================================================" -ForegroundColor $ColorInfo
     Write-Host ""
 }
 
@@ -490,7 +497,7 @@ try {
 Write-Host ""
 Read-Host "Presiona Enter para continuar"
 
-# Paso 1: Información del usuario
+# Paso 1: Informacion del usuario
 Show-Banner
 $userInfo = Get-UserInfo
 
@@ -541,9 +548,9 @@ Show-Banner
 Write-Host "[Config] Preferencias" -ForegroundColor $ColorInfo
 Write-Host ""
 
-$autoActivate = Read-Host "  ¿Activar objetos automáticamente después de subirlos? (S/N)"
-$syntaxCheck = Read-Host "  ¿Ejecutar syntax check después de subir código? (S/N)"
-$autoFormat = Read-Host "  ¿Formatear código automáticamente al guardar? (S/N)"
+$autoActivate = Read-Host "  Activar objetos automaticamente despues de subirlos? (S/N)"
+$syntaxCheck = Read-Host "  Ejecutar syntax check despues de subir codigo? (S/N)"
+$autoFormat = Read-Host "  Formatear codigo automaticamente al guardar? (S/N)"
 
 $preferences = @{
     auto_activate = ($autoActivate -eq "S" -or $autoActivate -eq "s")
@@ -551,7 +558,7 @@ $preferences = @{
     auto_format_on_save = ($autoFormat -eq "S" -or $autoFormat -eq "s")
 }
 
-# Paso 5: Guardar configuración
+# Paso 5: Guardar configuracion
 Show-Banner
 Write-Host "[Save] Guardando configuracion..." -ForegroundColor $ColorInfo
 
@@ -563,7 +570,7 @@ if (-not (Save-UserConfig -UserInfo $userInfo -SystemsConfig $systemsConfig -Pre
 # Paso 6: Configurar variables de entorno
 Set-EnvironmentVariables -SystemsConfig $systemsConfig
 
-# Paso 7: Generar configuración de MCP
+# Paso 7: Generar configuracion de MCP
 if (-not (Generate-MCPConfig -AvailableSystems $availableSystems -SystemsConfig $systemsConfig)) {
     Write-Host "[ERROR] Error generando configuracion de MCP" -ForegroundColor $ColorError
     exit 1
