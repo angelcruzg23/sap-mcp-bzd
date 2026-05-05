@@ -27,7 +27,8 @@ try {
     Write-Host "  OK: $pythonVersion" -ForegroundColor Green
 } catch {
     Write-Host "  ERROR: Python no encontrado" -ForegroundColor Red
-    Write-Host "  Instala Python 3.8+ desde python.org" -ForegroundColor Red
+    Write-Host "  Instala Python 3.10+ desde python.org" -ForegroundColor Red
+    Write-Host "  Nota: El paquete 'mcp' requiere Python 3.10 como minimo" -ForegroundColor Yellow
     exit 1
 }
 

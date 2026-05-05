@@ -490,7 +490,8 @@ try {
     $pythonVersion = python --version 2>&1
     Write-Host "  [OK] Python: $pythonVersion" -ForegroundColor $ColorSuccess
 } catch {
-    Write-Host "  [ERROR] Python no encontrado. Instala Python 3.8+ desde python.org" -ForegroundColor $ColorError
+    Write-Host "  [ERROR] Python no encontrado. Instala Python 3.10+ desde python.org" -ForegroundColor $ColorError
+    Write-Host "  Nota: El paquete 'mcp' requiere Python 3.10 como minimo" -ForegroundColor $ColorWarning
     exit 1
 }
 

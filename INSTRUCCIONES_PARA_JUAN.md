@@ -9,7 +9,7 @@ Ya está todo listo para que configures Kiro y puedas trabajar con SAP desde el 
 ## ✅ Prerequisitos
 
 - [x] Kiro instalado y logueado ✅
-- [ ] Python 3.8+ instalado (ver guía abajo si no lo tienes)
+- [ ] Python 3.10+ instalado (requerido por el paquete mcp - ver guía abajo si no lo tienes)
 - [x] Credenciales de SAP ✅
 - [x] Acceso a red corporativa ✅
 
@@ -25,9 +25,11 @@ Abre **PowerShell** y ejecuta:
 python --version
 ```
 
-**Si ves algo como:** `Python 3.12.0` o `Python 3.11.x` → **¡Ya lo tienes! Salta al Paso 1**
+**Si ves algo como:** `Python 3.12.0` o `Python 3.11.x` o `Python 3.10.x` → **¡Ya lo tienes! Salta al Paso 1**
 
 **Si ves un error** → Sigue esta guía para instalarlo
+
+**IMPORTANTE:** El paquete `mcp` (Model Context Protocol) requiere **Python 3.10 como mínimo**. Si tienes Python 3.8 o 3.9, debes actualizar.
 
 ---
 
@@ -36,7 +38,7 @@ python --version
 **winget** es el gestor de paquetes oficial de Windows. Es la forma más rápida y limpia.
 
 ```powershell
-# Instalar Python 3.12 (última versión estable)
+# Instalar Python 3.11 o 3.12 (versiones recomendadas)
 winget install Python.Python.3.12
 
 # Verificar instalación
@@ -45,8 +47,10 @@ python --version
 
 **Resultado esperado:**
 ```
-Python 3.12.x
+Python 3.12.x (o 3.11.x o 3.10.x - todas funcionan)
 ```
+
+**Nota:** Python 3.10 es el mínimo requerido por el paquete `mcp`. Recomendamos 3.11 o 3.12 por ser más estables.
 
 **Si winget no está disponible:**
 - Windows 10: Actualiza a la última versión

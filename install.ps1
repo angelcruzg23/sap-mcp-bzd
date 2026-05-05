@@ -49,12 +49,13 @@ function Test-Prerequisites {
             if ($major -ge 3 -and $minor -ge 8) {
                 Write-Host "  ✓ Python $pythonVersion instalado" -ForegroundColor $ColorSuccess
             } else {
-                Write-Host "  ✗ Python 3.8+ requerido. Versión actual: $pythonVersion" -ForegroundColor $ColorError
+                Write-Host "  ✗ Python 3.10+ requerido (el paquete 'mcp' lo requiere). Versión actual: $pythonVersion" -ForegroundColor $ColorError
                 return $false
             }
         }
     } catch {
-        Write-Host "  ✗ Python no encontrado. Instala Python 3.8+ desde python.org" -ForegroundColor $ColorError
+        Write-Host "  ✗ Python no encontrado. Instala Python 3.10+ desde python.org" -ForegroundColor $ColorError
+        Write-Host "  Nota: El paquete 'mcp' requiere Python 3.10 como minimo" -ForegroundColor $ColorWarning
         return $false
     }
     

@@ -218,7 +218,7 @@ Crear un script de inicialización para nuevos desarrolladores:
 # Bienvenido al Framework Kiro SAP ABAP de Amrize BP
 
 ## Paso 1: Verificar Instalación
-- [ ] Python 3.8+ instalado
+- [ ] Python 3.10+ instalado (requerido por el paquete mcp)
 - [ ] Kiro instalado
 - [ ] Acceso a red corporativa (VPN si es remoto)
 

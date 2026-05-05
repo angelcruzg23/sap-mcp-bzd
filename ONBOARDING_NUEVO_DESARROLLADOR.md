@@ -9,7 +9,7 @@ Juan acaba de instalar Kiro, se logueó con sus credenciales de Amrize, y ahora 
 
 Antes de empezar, Juan debe tener:
 - [x] Kiro instalado y logueado
-- [x] Python 3.8+ instalado
+- [x] Python 3.10+ instalado (requerido por el paquete mcp)
 - [x] Acceso a la red corporativa (VPN si es remoto)
 - [x] Usuario SAP activo (ej: AHERNA11)
 - [x] Password de SAP
@@ -335,7 +335,7 @@ Copy-Item -Path C:\Users\$env:USERNAME\sap-mcp-bzd\.kiro\steering\* -Destination
 Antes de empezar a trabajar, Juan debe verificar:
 
 - [ ] Kiro instalado y logueado
-- [ ] Python 3.8+ instalado
+- [ ] Python 3.10+ instalado (requerido por el paquete mcp)
 - [ ] Repositorio clonado o archivos descargados
 - [ ] Dependencias Python instaladas (`pip list`)
 - [ ] Variables de entorno configuradas (`$env:SAP_PASSWORD`)

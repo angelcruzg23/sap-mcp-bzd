@@ -634,7 +634,7 @@ python server.py
 ```
 
 **Soluciones:**
-- Si falta Python: Instalar Python 3.8+
+- Si falta Python: Instalar Python 3.10+ (requerido por el paquete mcp)
 - Si faltan dependencias: `pip install -r requirements.txt`
 - Si falta password: `.\manage-credentials.ps1 update`
 - Si falta mcp.json: `.\setup-wizard.ps1`

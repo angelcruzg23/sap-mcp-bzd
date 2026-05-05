@@ -95,7 +95,7 @@ Verifica la conexión con SAP BZD
 3. **Verifica que Python esté instalado:**
    ```powershell
    python --version
-   # Debe mostrar Python 3.8 o superior
+   # Debe mostrar Python 3.10 o superior (requerido por el paquete mcp)
    ```
 
 ### Si Python no está instalado

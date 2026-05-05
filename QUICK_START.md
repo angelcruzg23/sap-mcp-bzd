@@ -4,7 +4,7 @@
 
 ### ✅ Prerequisitos
 - [x] Kiro instalado y logueado
-- [x] Python 3.8+ instalado
+- [x] Python 3.10+ instalado (requerido por el paquete mcp)
 - [x] Acceso a red corporativa (VPN si es remoto)
 - [x] Usuario(s) SAP activo(s)
 
