@@ -99,3 +99,21 @@ Tests:
   ZCL_SD_STOCK_DAO_TEST (tests de integración)
   ZCL_SD_EXCLUSION_CHECKER_TEST (tests de integración)
 ```
+
+## Arquitectura de referencia (Include de Enhancement Spot → OO)
+Cuando el punto de entrada es un include procedural (no un FM), el patrón cambia ligeramente:
+```
+ZI_SD_E_112_PLANT_DETERMINE (include — fachada, mapea globales ↔ tipos propios)
+  └─ ZCL_SD_PLANT_DETERMINATOR (orquestador — recibe/retorna tipos propios)
+       ├─ ZIF_SD_PLANT_DET_DAO → ZCL_SD_PLANT_DET_DAO
+       │    (get_postal_code, get_material_groups, determine_plant,
+       │     is_material_excluded, material_exists_in_plant)
+       └─ ZIF_SD_ENH_STATUS_CHECKER → ZCL_SD_ENH_STATUS_CHECKER
+            (is_active — consulta ZCA_ACTIVE_ENH_T + Z_FM_CA_GET_ENH_STATUS)
+
+Tests:
+  ZCL_SD_PLANT_DETERMINATOR_TEST
+    ├─ LCL_DAO_DOUBLE    (simula KNA1, MVKE, KOTG504, MARD, ZSD_PLANT_DETERMINE)
+    └─ LCL_ENH_DOUBLE    (simula estado del enhancement)
+```
+La diferencia clave vs FM-fachada: el include debe **leer globales al inicio** y **escribir resultados de vuelta al final**. El orquestador nunca toca globales del programa.

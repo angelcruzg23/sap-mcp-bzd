@@ -18,6 +18,7 @@
 1. **Siempre proporcionar la OT explícitamente** — nunca dejar que Kiro cree OTs en sistemas con CTS Project Management (como BZD). La API ADT no soporta asignación a proyecto CTS.
 2. **Crear la OT ANTES de pedir a Kiro que suba código** — en SE09/SE10 con la descripción correcta del change/ticket.
 3. **$TMP solo para POCs** — nunca para código que irá a producción.
+4. **Revisar TODAS las tasks dentro de una OT** — cuando se consulta el contenido de una orden de transporte con `sap_get_transport_details`, los objetos están asignados a las tasks (campo `tasks[].objects[]`), NO al request principal. Siempre revisar cada task para ver qué objetos contiene.
 
 ## Reglas de código
 
@@ -43,3 +44,8 @@
 - Tipos de objeto para activación: PROG/P (programa), PROG/I (include), FUGR/FF (function module), CLAS/OC (clase), INTF/OI (interfaz).
 - Crear/escribir clases globales aún NO está soportado por el MCP — usar Eclipse ADT para esas operaciones.
 - La activación ADT puede pasar objetos con errores de sintaxis (especialmente FMs). SIEMPRE ejecutar `sap_syntax_check` después de activar — no confiar en que "activó = compila" (lección CHG0434843).
+
+### Estructura XML del CTS (lección 2026-05-05)
+- El endpoint `/sap/bc/adt/cts/transportrequests` retorna **todas las OTs visibles** en un solo XML de ~50KB, no solo la OT solicitada. El número en la URL no filtra.
+- Los objetos de una task usan el tag `tm:abap_object` (con guión bajo), NO `tm:abapObject`. Atributos clave: `tm:pgmid`, `tm:type`, `tm:name`, `tm:wbtype`, `tm:obj_info`.
+- El tool `sap_get_transport_xml_raw` permite ver el fragmento XML crudo de una OT específica cuando `sap_get_transport_details` no muestra objetos — útil para diagnóstico de parsing.

@@ -103,3 +103,33 @@ La activación vía ADT REST API (`/sap/bc/adt/activation`) puede pasar objetos 
 - Preferir BAdIs sobre User Exits para nuevas implementaciones
 - Centralizar acceso a datos en clases DAO (Data Access Object) separadas
 - FM como fachada de clases OO: el FM instancia la clase y delega (ver ZFM_SD_GET_MATERIAL_STOCK → ZCL_SD_STOCK_QUERY)
+
+## PATRÓN: REFACTORIZACIÓN DE INCLUDES PROCEDURALES A OO TESTEABLE
+
+Los includes de enhancement spots (como `ZI_SD_E_112_PLANT_DETERMINE`) operan sobre variables globales del programa (`vbak`, `vbap`, `xvbpa`, `cvbap`, `*vbap`) y son imposibles de testear directamente.
+
+### Estrategia validada (SD_E_112, 2026-05-05)
+1. **El include se convierte en fachada** (~30 líneas): mapea globales → tipos propios → llama al orquestador → escribe resultados de vuelta
+2. **Toda la lógica va al orquestador** (`ZCL_SD_*`): recibe tipos propios, sin referencias a globales del programa
+3. **Tipos propios desacoplan del contexto**: definir `ty_vbak_relevant`, `ty_vbap_relevant` con solo los campos necesarios — permite construir datos de test sin poblar estructuras SAP completas
+4. **El resultado se retorna explícitamente**: `ty_result` con flags (`plant_determined`, `warning_no_mard`) y mensajes — nunca efectos laterales ocultos
+
+```abap
+" Include refactorizado — solo fachada
+DATA(ls_vbak_rel) = VALUE zcl_sd_plant_determinator=>ty_vbak_relevant(
+  auart = vbak-auart  vkorg = vbak-vkorg  vtweg = vbak-vtweg ).
+DATA(lo_det) = NEW zcl_sd_plant_determinator( ).
+lo_det->determine_and_apply(
+  EXPORTING is_vbak = ls_vbak_rel ...
+  CHANGING  cs_vbap = ls_vbap_rel ... ).
+IF ls_result-plant_determined = abap_true.
+  vbap-werks = ls_vbap_rel-werks.  " escribir de vuelta a global
+ENDIF.
+```
+
+### Orden de deploy para refactorizaciones de este tipo
+1. Interfaces (`ZIF_*`) — sin dependencias, primero
+2. Implementaciones DAO y checkers (`ZCL_*_DAO`, `ZCL_*_CHECKER`)
+3. Orquestador (`ZCL_*_DETERMINATOR` o similar)
+4. Clase de tests (`ZCL_*_TEST`) → ejecutar ABAP Unit antes de tocar el include
+5. Include refactorizado — último, cuando los tests pasan

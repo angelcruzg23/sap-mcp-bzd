@@ -702,7 +702,7 @@ class SAPADTClient:
                 "ok": resp.status_code < 400,
                 "status": resp.status_code,
                 "headers": dict(resp.headers),
-                "body_preview": resp.text[:500] if resp.text else "",
+                "body_preview": resp.text[:5000] if resp.text else "",
             }
         except Exception as e:
             return {"ok": False, "message": str(e)}
@@ -794,6 +794,33 @@ class SAPADTClient:
         except Exception as e:
             return {"ok": False, "message": str(e)}
 
+    def get_transport_xml_raw(self, transport_number: str) -> dict:
+        """Retorna el XML crudo del endpoint CTS para diagnóstico — permite ver la estructura real de tags."""
+        transport_number = transport_number.upper()
+        try:
+            url = self._url("/sap/bc/adt/cts/transportrequests")
+            resp = self.session.get(url, timeout=30)
+            if resp.status_code != 200:
+                return {"ok": False, "status": resp.status_code, "message": resp.text[:500]}
+
+            # Extraer solo el fragmento XML de la OT solicitada para no devolver 49KB
+            xml_text = resp.text
+            start_marker = f'tm:number="{transport_number}"'
+            idx = xml_text.find(start_marker)
+            if idx == -1:
+                return {"ok": False, "message": f"OT {transport_number} no encontrada en el XML"}
+
+            # Retornar 3000 chars desde donde aparece la OT
+            fragment = xml_text[max(0, idx - 50): idx + 3000]
+            return {
+                "ok": True,
+                "transport": transport_number,
+                "xml_fragment": fragment,
+                "total_xml_size": len(xml_text),
+            }
+        except Exception as e:
+            return {"ok": False, "message": str(e)}
+
     def get_transport_details(self, transport_number: str) -> dict:
         """Obtiene los detalles y objetos de una orden de transporte específica."""
         transport_number = transport_number.upper()
@@ -805,44 +832,64 @@ class SAPADTClient:
 
             try:
                 root = ET.fromstring(resp.text)
+                TM = "http://www.sap.com/cts/adt/tm"
+                ADTCORE = "http://www.sap.com/adt/core"
+
                 # Buscar el request específico
                 for req in root.iter():
                     tag = req.tag.split("}")[-1] if "}" in req.tag else req.tag
                     if tag == "request":
-                        number = req.get("{http://www.sap.com/cts/adt/tm}number", "")
+                        number = req.get(f"{{{TM}}}number", "")
                         if number == transport_number:
-                            owner = req.get("{http://www.sap.com/cts/adt/tm}owner", "")
-                            desc = req.get("{http://www.sap.com/cts/adt/tm}desc", "")
-                            status = req.get("{http://www.sap.com/cts/adt/tm}status", "")
-                            target = req.get("{http://www.sap.com/cts/adt/tm}target", "")
+                            owner = req.get(f"{{{TM}}}owner", "")
+                            desc = req.get(f"{{{TM}}}desc", "")
+                            status = req.get(f"{{{TM}}}status", "")
+                            target = req.get(f"{{{TM}}}target", "")
 
-                            # Buscar tasks y objetos dentro del request
+                            # Buscar tasks dentro del request
                             tasks = []
                             for child in req.iter():
                                 child_tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
                                 if child_tag == "task":
-                                    task_number = child.get("{http://www.sap.com/cts/adt/tm}number", "")
-                                    task_owner = child.get("{http://www.sap.com/cts/adt/tm}owner", "")
-                                    task_desc = child.get("{http://www.sap.com/cts/adt/tm}desc", "")
-                                    task_status = child.get("{http://www.sap.com/cts/adt/tm}status", "")
+                                    task_number = child.get(f"{{{TM}}}number", "")
+                                    task_owner = child.get(f"{{{TM}}}owner", "")
+                                    task_desc = child.get(f"{{{TM}}}desc", "")
+                                    task_status = child.get(f"{{{TM}}}status", "")
 
                                     # Buscar objetos dentro de la task
+                                    # SAP CTS usa tm:abap_object (con guión bajo) — confirmado en BZD 130
                                     objects = []
                                     for obj in child.iter():
                                         obj_tag = obj.tag.split("}")[-1] if "}" in obj.tag else obj.tag
-                                        if obj_tag == "abapObject":
-                                            obj_name = obj.get("{http://www.sap.com/cts/adt/tm}name",
-                                                             obj.get("{http://www.sap.com/adt/core}name", ""))
-                                            obj_type = obj.get("{http://www.sap.com/cts/adt/tm}type",
-                                                             obj.get("{http://www.sap.com/adt/core}type", ""))
-                                            obj_pgmid = obj.get("{http://www.sap.com/cts/adt/tm}pgmid", "")
-                                            obj_lock = obj.get("{http://www.sap.com/cts/adt/tm}lockflag", "")
+                                        if obj_tag in ("abap_object", "abapObject", "objectReference", "object"):
+                                            # Intentar todos los atributos posibles según namespace
+                                            obj_name = (
+                                                obj.get(f"{{{TM}}}name") or
+                                                obj.get(f"{{{ADTCORE}}}name") or
+                                                obj.get("name") or ""
+                                            )
+                                            obj_type = (
+                                                obj.get(f"{{{TM}}}type") or
+                                                obj.get(f"{{{ADTCORE}}}type") or
+                                                obj.get("type") or ""
+                                            )
+                                            obj_pgmid = obj.get(f"{{{TM}}}pgmid", obj.get("pgmid", ""))
+                                            obj_lock = obj.get(f"{{{TM}}}lockflag", obj.get("lockflag", ""))
+                                            obj_desc = (
+                                                obj.get(f"{{{TM}}}obj_info") or
+                                                obj.get(f"{{{TM}}}desc") or
+                                                obj.get(f"{{{ADTCORE}}}description") or
+                                                obj.get("description") or ""
+                                            )
+                                            obj_wbtype = obj.get(f"{{{TM}}}wbtype", obj.get("wbtype", ""))
                                             if obj_name:
                                                 objects.append({
                                                     "name": obj_name,
                                                     "type": obj_type,
+                                                    "wbtype": obj_wbtype,
                                                     "pgmid": obj_pgmid,
                                                     "locked": obj_lock,
+                                                    "description": obj_desc,
                                                 })
 
                                     tasks.append({

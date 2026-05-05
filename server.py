@@ -377,6 +377,20 @@ async def list_tools() -> list[types.Tool]:
                 "required": ["transport_number"]
             }
         ),
+        types.Tool(
+            name="sap_get_transport_xml_raw",
+            description=f"Retorna el fragmento XML crudo del CTS para una OT específica en {SYS_LABEL}. Útil para diagnóstico cuando get_transport_details no muestra objetos.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "transport_number": {
+                        "type": "string",
+                        "description": "Número de la orden de transporte. Ej: BZDK931030"
+                    }
+                },
+                "required": ["transport_number"]
+            }
+        ),
     ]
 
 
@@ -529,6 +543,13 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         if not tr:
             return respond({"ok": False, "message": "transport_number es requerido"})
         result = sap.get_transport_details(tr)
+        return respond(result)
+
+    elif name == "sap_get_transport_xml_raw":
+        tr = arguments.get("transport_number", "").upper()
+        if not tr:
+            return respond({"ok": False, "message": "transport_number es requerido"})
+        result = sap.get_transport_xml_raw(tr)
         return respond(result)
 
     else:
