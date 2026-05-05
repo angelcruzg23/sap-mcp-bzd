@@ -6,12 +6,203 @@ Ya está todo listo para que configures Kiro y puedas trabajar con SAP desde el 
 
 ---
 
-## ✅ Prerequisitos (Ya los tienes)
+## ✅ Prerequisitos
 
 - [x] Kiro instalado y logueado ✅
-- [x] Python 3.8+ instalado ✅
+- [ ] Python 3.8+ instalado (ver guía abajo si no lo tienes)
 - [x] Credenciales de SAP ✅
 - [x] Acceso a red corporativa ✅
+
+---
+
+## 🐍 Paso 0: Instalar Python (Si no lo tienes)
+
+### Verificar si Python está instalado
+
+Abre **PowerShell** y ejecuta:
+
+```powershell
+python --version
+```
+
+**Si ves algo como:** `Python 3.12.0` o `Python 3.11.x` → **¡Ya lo tienes! Salta al Paso 1**
+
+**Si ves un error** → Sigue esta guía para instalarlo
+
+---
+
+### Opción 1: Instalación con winget (Recomendado - Windows 10/11)
+
+**winget** es el gestor de paquetes oficial de Windows. Es la forma más rápida y limpia.
+
+```powershell
+# Instalar Python 3.12 (última versión estable)
+winget install Python.Python.3.12
+
+# Verificar instalación
+python --version
+```
+
+**Resultado esperado:**
+```
+Python 3.12.x
+```
+
+**Si winget no está disponible:**
+- Windows 10: Actualiza a la última versión
+- Windows 11: Ya viene instalado
+
+---
+
+### Opción 2: Instalación con Chocolatey
+
+Si tu empresa usa **Chocolatey** como gestor de paquetes:
+
+```powershell
+# Instalar Python
+choco install python -y
+
+# Verificar instalación
+python --version
+```
+
+---
+
+### Opción 3: Instalación Manual desde Microsoft Store
+
+```powershell
+# Abrir Microsoft Store directamente en Python
+start ms-windows-store://pdp/?ProductId=9NCVDN91XZQP
+
+# O buscar "Python 3.12" en Microsoft Store
+```
+
+**Ventajas:**
+- ✅ Instalación automática
+- ✅ Actualizaciones automáticas
+- ✅ No requiere permisos de administrador
+
+---
+
+### Opción 4: Instalación Manual desde python.org
+
+Si las opciones anteriores no funcionan:
+
+```powershell
+# Descargar el instalador
+$url = "https://www.python.org/ftp/python/3.12.0/python-3.12.0-amd64.exe"
+$output = "$env:TEMP\python-installer.exe"
+Invoke-WebRequest -Uri $url -OutFile $output
+
+# Ejecutar instalador (modo silencioso)
+Start-Process -FilePath $output -ArgumentList "/quiet", "InstallAllUsers=1", "PrependPath=1" -Wait
+
+# Verificar instalación
+python --version
+```
+
+**Importante:** Si instalas manualmente, asegúrate de marcar:
+- ✅ "Add Python to PATH"
+- ✅ "Install for all users" (si tienes permisos)
+
+---
+
+### Verificar que pip está instalado
+
+```powershell
+pip --version
+```
+
+**Resultado esperado:**
+```
+pip 23.x.x from C:\...\Python312\lib\site-packages\pip (python 3.12)
+```
+
+**Si pip no está disponible:**
+```powershell
+python -m ensurepip --upgrade
+```
+
+---
+
+### Solución de Problemas Comunes
+
+#### Problema: "python no se reconoce como comando"
+
+**Solución:** Agregar Python al PATH manualmente
+
+```powershell
+# Encontrar dónde está instalado Python
+Get-Command python | Select-Object -ExpandProperty Source
+
+# Si no encuentra nada, buscar en ubicaciones comunes
+Test-Path "C:\Python312\python.exe"
+Test-Path "C:\Users\$env:USERNAME\AppData\Local\Programs\Python\Python312\python.exe"
+Test-Path "C:\Program Files\Python312\python.exe"
+
+# Una vez encontrado, agregar al PATH (ejemplo)
+$pythonPath = "C:\Python312"
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$pythonPath;$pythonPath\Scripts", "User")
+
+# Cerrar y abrir PowerShell nuevamente
+```
+
+#### Problema: "Necesito permisos de administrador"
+
+**Solución:** Usar Microsoft Store (no requiere admin) o pedir a IT que instale Python
+
+```powershell
+# Opción Microsoft Store (sin admin)
+start ms-windows-store://pdp/?ProductId=9NCVDN91XZQP
+```
+
+#### Problema: "Tengo Python 2.7 instalado"
+
+**Solución:** Instalar Python 3.12 en paralelo
+
+```powershell
+# Python 2 y Python 3 pueden coexistir
+# Usa 'python3' en lugar de 'python'
+python3 --version
+
+# O instala Python 3.12 con winget
+winget install Python.Python.3.12
+```
+
+---
+
+### Verificación Final
+
+Una vez instalado Python, verifica que todo funciona:
+
+```powershell
+# Verificar Python
+python --version
+
+# Verificar pip
+pip --version
+
+# Instalar una librería de prueba
+pip install requests
+
+# Probar Python
+python -c "import requests; print('Python funciona correctamente!')"
+```
+
+**Resultado esperado:**
+```
+Python 3.12.x
+pip 23.x.x from ...
+Collecting requests...
+Successfully installed requests-2.31.0
+Python funciona correctamente!
+```
+
+---
+
+## ✅ Ahora sí, continúa con el Paso 1
+
+Una vez que Python esté instalado y funcionando, continúa con la instalación del framework.
 
 ---
 
@@ -43,15 +234,48 @@ Resolving deltas: 100% ...
 
 ## ⚙️ Paso 2: Ejecutar el Asistente de Configuración
 
-En la misma ventana de PowerShell:
+Tienes **dos opciones** para configurar el framework:
+
+### 🎯 Opción A: Asistente Interactivo (Recomendado)
+
+El asistente te guía paso a paso con menús interactivos:
 
 ```powershell
 .\setup-wizard.ps1
 ```
 
-El asistente te va a preguntar:
+**Ventajas:**
+- ✅ Interfaz guiada con menús
+- ✅ Configurar múltiples sistemas a la vez
+- ✅ Verificación automática de conexiones
+- ✅ Configuración de preferencias
 
-### 2.1 Información Personal
+**Continúa con la sección 2.1 abajo** ⬇️
+
+---
+
+### ⚡ Opción B: Instalador Simple (Alternativa Rápida)
+
+Si prefieres algo más directo o el wizard tiene problemas:
+
+```powershell
+.\install.ps1 -SAPUser "TU_USUARIO_SAP"
+```
+
+**Ventajas:**
+- ✅ Más rápido (5 minutos)
+- ✅ Sin menús interactivos
+- ✅ Configura BZD automáticamente
+
+**Desventajas:**
+- ⚠️ Solo configura un sistema (BZD)
+- ⚠️ No configura preferencias
+
+**Si usas esta opción, salta al Paso 3** ⬇️
+
+---
+
+### 2.1 Información Personal (Solo Opción A)
 ```
 Nombre completo: Juan Perez
 Email corporativo: juan.perez@amrize.com
@@ -192,14 +416,86 @@ Test-NetConnection fbpl08v010.holcimbp.net -Port 8000
 
 ### Problema 4: "Python no encontrado"
 
-**Solución:**
+**Diagnóstico:**
 ```powershell
 # Verificar Python
 python --version
 
-# Si no está instalado, descargar de:
-# https://www.python.org/downloads/
+# Verificar pip
+pip --version
 ```
+
+**Solución Rápida:**
+```powershell
+# Opción 1: Instalar con winget (Recomendado)
+winget install Python.Python.3.12
+
+# Opción 2: Microsoft Store (sin permisos admin)
+start ms-windows-store://pdp/?ProductId=9NCVDN91XZQP
+
+# Opción 3: Chocolatey
+choco install python -y
+```
+
+**Después de instalar:**
+```powershell
+# Cerrar y abrir PowerShell nuevamente
+# Verificar instalación
+python --version
+pip --version
+```
+
+**Si sigue sin funcionar:**
+Ver la guía completa de instalación de Python en el **Paso 0** arriba.
+
+---
+
+### Problema 5: "Error al instalar dependencias"
+
+**Diagnóstico:**
+```powershell
+# Intentar instalar dependencias manualmente
+pip install requests python-dotenv
+```
+
+**Soluciones:**
+
+**Error: "pip no se reconoce"**
+```powershell
+# Usar python -m pip en lugar de pip
+python -m pip install requests python-dotenv
+```
+
+**Error: "Permission denied"**
+```powershell
+# Instalar solo para el usuario actual
+pip install --user requests python-dotenv
+```
+
+**Error: "SSL Certificate"**
+```powershell
+# Instalar sin verificar SSL (solo si estás detrás de proxy corporativo)
+pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org requests python-dotenv
+```
+
+---
+
+### Problema 6: "El wizard tiene errores de sintaxis"
+
+**Síntoma:**
+```
+Unexpected token '}' in expression or statement...
+```
+
+**Causa:** Problemas con emojis en PowerShell
+
+**Solución:** Usar el instalador simple en lugar del wizard
+```powershell
+# En lugar de .\setup-wizard.ps1, usar:
+.\install.ps1 -SAPUser "TU_USUARIO_SAP"
+```
+
+El instalador simple hace lo mismo pero sin interfaz interactiva.
 
 ---
 
