@@ -38,7 +38,10 @@ Write-Host ""
 # Función: Verificar prerequisitos
 # ============================================================================
 function Test-Prerequisites {
-    Write-Host "🔍 Verificando prerequisitos..." -ForegroundColor $ColorInfo
+    Write-Host "Verificando prerequisitos..." -ForegroundColor $ColorInfo
+    Write-Host ""
+    
+    $hasErrors = $false
     
     # Verificar Python
     try {
@@ -46,34 +49,64 @@ function Test-Prerequisites {
         if ($pythonVersion -match "Python (\d+)\.(\d+)") {
             $major = [int]$matches[1]
             $minor = [int]$matches[2]
-            if ($major -ge 3 -and $minor -ge 8) {
-                Write-Host "  ✓ Python $pythonVersion instalado" -ForegroundColor $ColorSuccess
+            if ($major -ge 3 -and $minor -ge 10) {
+                Write-Host "  [OK] Python $pythonVersion instalado" -ForegroundColor $ColorSuccess
             } else {
-                Write-Host "  ✗ Python 3.10+ requerido (el paquete 'mcp' lo requiere). Versión actual: $pythonVersion" -ForegroundColor $ColorError
-                return $false
+                Write-Host "  [ERROR] Python 3.10+ requerido. Version actual: $pythonVersion" -ForegroundColor $ColorError
+                Write-Host "          El paquete 'mcp' requiere Python 3.10 como minimo" -ForegroundColor $ColorError
+                $hasErrors = $true
             }
         }
     } catch {
-        Write-Host "  ✗ Python no encontrado. Instala Python 3.10+ desde python.org" -ForegroundColor $ColorError
-        Write-Host "  Nota: El paquete 'mcp' requiere Python 3.10 como minimo" -ForegroundColor $ColorWarning
-        return $false
+        Write-Host "  [ERROR] Python no encontrado" -ForegroundColor $ColorError
+        $hasErrors = $true
     }
     
     # Verificar pip
     try {
         $pipVersion = pip --version 2>&1
-        Write-Host "  ✓ pip instalado" -ForegroundColor $ColorSuccess
+        Write-Host "  [OK] pip instalado" -ForegroundColor $ColorSuccess
     } catch {
-        Write-Host "  ✗ pip no encontrado" -ForegroundColor $ColorError
-        return $false
+        Write-Host "  [ERROR] pip no encontrado" -ForegroundColor $ColorError
+        $hasErrors = $true
     }
     
     # Verificar Git (opcional pero recomendado)
     try {
         $gitVersion = git --version 2>&1
-        Write-Host "  ✓ Git instalado" -ForegroundColor $ColorSuccess
+        Write-Host "  [OK] Git instalado" -ForegroundColor $ColorSuccess
     } catch {
-        Write-Host "  ⚠ Git no encontrado (opcional)" -ForegroundColor $ColorWarning
+        Write-Host "  [!] Git no encontrado (opcional pero recomendado)" -ForegroundColor $ColorWarning
+    }
+    
+    Write-Host ""
+    
+    # Si hay errores, mostrar instrucciones
+    if ($hasErrors) {
+        Write-Host "================================================================" -ForegroundColor $ColorError
+        Write-Host "  PREREQUISITOS FALTANTES" -ForegroundColor $ColorError
+        Write-Host "================================================================" -ForegroundColor $ColorError
+        Write-Host ""
+        Write-Host "Este instalador requiere Python 3.10+ para funcionar." -ForegroundColor $ColorWarning
+        Write-Host ""
+        Write-Host "Opciones de instalacion:" -ForegroundColor $ColorInfo
+        Write-Host ""
+        Write-Host "  Opcion 1: Instalador automatico (recomendado)" -ForegroundColor $ColorSuccess
+        Write-Host "    .\install-prerequisites.ps1" -ForegroundColor $ColorInfo
+        Write-Host ""
+        Write-Host "  Opcion 2: Guia paso a paso" -ForegroundColor $ColorSuccess
+        Write-Host "    Lee: GUIA_INSTALACION_DESDE_CERO.md" -ForegroundColor $ColorInfo
+        Write-Host ""
+        Write-Host "  Opcion 3: Instalacion manual rapida" -ForegroundColor $ColorSuccess
+        Write-Host "    winget install Python.Python.3.12" -ForegroundColor $ColorInfo
+        Write-Host "    (Luego cierra y abre PowerShell nuevamente)" -ForegroundColor $ColorWarning
+        Write-Host ""
+        Write-Host "Despues de instalar Python, ejecuta este script nuevamente:" -ForegroundColor $ColorInfo
+        Write-Host "  .\install.ps1 -SAPUser 'TU_USUARIO_SAP'" -ForegroundColor $ColorSuccess
+        Write-Host ""
+        Write-Host "================================================================" -ForegroundColor $ColorError
+        Write-Host ""
+        return $false
     }
     
     return $true

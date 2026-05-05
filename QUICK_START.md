@@ -2,7 +2,27 @@
 
 ## Para Juan (o cualquier nuevo desarrollador)
 
-### ✅ Prerequisitos
+---
+
+## 🆕 ¿Primera Vez? ¿No Tienes Python ni Git?
+
+**👉 Empieza aquí:** [GUIA_INSTALACION_DESDE_CERO.md](GUIA_INSTALACION_DESDE_CERO.md)
+
+O ejecuta el instalador automático de prerequisitos:
+
+```powershell
+.\install-prerequisites.ps1
+```
+
+Este script instalará automáticamente:
+- Python 3.12 (requerido)
+- Git (opcional pero recomendado)
+
+**Después de instalar los prerequisitos, continúa con los pasos de abajo.**
+
+---
+
+## ✅ Prerequisitos
 - [x] Kiro instalado y logueado
 - [x] Python 3.10+ instalado (requerido por el paquete mcp)
 - [x] Acceso a red corporativa (VPN si es remoto)

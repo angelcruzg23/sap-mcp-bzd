@@ -18,7 +18,40 @@ Un **instalador único** que configura todo lo necesario para trabajar con SAP A
 
 ---
 
-## ⚡ Quick Start (5 minutos)
+## ⚡ Quick Start
+
+### ¿Primera vez? ¿No tienes Python ni Git?
+
+**Opcion 1: Instalador Todo-en-Uno (Mas Rapido)**
+
+```powershell
+# Descarga el proyecto (ZIP desde GitHub o Git)
+cd C:\Users\TU_USUARIO\sap-mcp-bzd
+
+# Ejecuta el instalador completo
+.\install-complete.ps1 -SAPUser "TU_USUARIO_SAP"
+```
+
+Este instalador hara TODO automaticamente:
+- ✅ Instalar Python 3.12 (si falta)
+- ✅ Instalar Git (si falta)
+- ✅ Configurar MCP servers
+- ✅ Copiar steering files, skills, hooks
+- ✅ Verificar conexion a SAP
+
+**Opcion 2: Instalador de Prerequisitos Solamente**
+
+```powershell
+.\install-prerequisites.ps1
+```
+
+**Opcion 3: Guia Paso a Paso**
+
+👉 Lee: [GUIA_INSTALACION_DESDE_CERO.md](GUIA_INSTALACION_DESDE_CERO.md)
+
+---
+
+### Ya tienes Python 3.10+ y Git? (5 minutos)
 
 ### 1. Clonar el repositorio
 
@@ -56,6 +89,7 @@ Verifica la conexión con SAP BZD
 
 ## 📚 Documentación
 
+- **[GUIA_INSTALACION_DESDE_CERO.md](GUIA_INSTALACION_DESDE_CERO.md)** — Para usuarios sin Python ni Git
 - **[QUICK_START.md](QUICK_START.md)** — Instalación en 5 minutos
 - **[ONBOARDING_NUEVO_DESARROLLADOR.md](ONBOARDING_NUEVO_DESARROLLADOR.md)** — Guía completa paso a paso
 - **[General/APLICACION_KIROPOWERS_A_SAP_ABAP.md](General/APLICACION_KIROPOWERS_A_SAP_ABAP.md)** — Análisis del framework
