@@ -34,3 +34,7 @@ QueHayMetro/mobile/
 # Documentos binarios (opcionales, pesan mucho)
 *.docx
 *.mht
+
+# Carpetas de organizacion interna (no subir a GitHub)
+NO_SUBIR/
+PowerSkillSapAmrize/
