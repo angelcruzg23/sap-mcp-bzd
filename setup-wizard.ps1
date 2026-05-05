@@ -50,7 +50,7 @@ function Get-AvailableSystems {
 function Show-AvailableSystems {
     param($Systems)
     
-    Write-Host "📋 Sistemas SAP disponibles:" -ForegroundColor $ColorInfo
+    Write-Host "[i] Sistemas SAP disponibles:" -ForegroundColor $ColorInfo
     Write-Host ""
     
     $index = 1
@@ -79,7 +79,7 @@ function Show-AvailableSystems {
 # Función: Solicitar información del usuario
 # ============================================================================
 function Get-UserInfo {
-    Write-Host "👤 Información del usuario" -ForegroundColor $ColorInfo
+    Write-Host "[Usuario] Informacion del usuario" -ForegroundColor $ColorInfo
     Write-Host ""
     
     $name = Read-Host "  Nombre completo (ej: Juan Perez)"
@@ -147,7 +147,7 @@ function Configure-SAPSystem {
     $isDefault = $false
     if ($IsFirst) {
         $isDefault = $true
-        Write-Host "  ✓ Este será tu sistema por defecto" -ForegroundColor $ColorSuccess
+        Write-Host "  [OK] Este sera tu sistema por defecto" -ForegroundColor $ColorSuccess
     } else {
         $defaultChoice = Read-Host "  ¿Usar como sistema por defecto? (S/N)"
         $isDefault = ($defaultChoice -eq "S" -or $defaultChoice -eq "s")
@@ -194,10 +194,10 @@ function Save-UserConfig {
     
     try {
         $userConfig | ConvertTo-Json -Depth 10 | Out-File "user-config.json" -Encoding UTF8
-        Write-Host "  ✓ Configuración guardada en user-config.json" -ForegroundColor $ColorSuccess
+        Write-Host "  [OK] Configuracion guardada en user-config.json" -ForegroundColor $ColorSuccess
         return $true
     } catch {
-        Write-Host "  ✗ Error guardando configuración: $_" -ForegroundColor $ColorError
+        Write-Host "  [ERROR] Error guardando configuracion: $_" -ForegroundColor $ColorError
         return $false
     }
 }
@@ -209,7 +209,7 @@ function Set-EnvironmentVariables {
     param([hashtable]$SystemsConfig)
     
     Write-Host ""
-    Write-Host "🔐 Configurando variables de entorno..." -ForegroundColor $ColorInfo
+    Write-Host "[Seguridad] Configurando variables de entorno..." -ForegroundColor $ColorInfo
     
     foreach ($key in $SystemsConfig.Keys) {
         $config = $SystemsConfig[$key]
@@ -221,9 +221,9 @@ function Set-EnvironmentVariables {
                 # También configurar para la sesión actual
                 Set-Item -Path "env:$($config.PasswordEnvVar)" -Value $config.Password
                 
-                Write-Host "  ✓ $($config.PasswordEnvVar) configurado" -ForegroundColor $ColorSuccess
+                Write-Host "  [OK] $($config.PasswordEnvVar) configurado" -ForegroundColor $ColorSuccess
             } catch {
-                Write-Host "  ✗ Error configurando $($config.PasswordEnvVar): $_" -ForegroundColor $ColorError
+                Write-Host "  [ERROR] Error configurando $($config.PasswordEnvVar): $_" -ForegroundColor $ColorError
             }
         }
     }
@@ -239,7 +239,7 @@ function Generate-MCPConfig {
     )
     
     Write-Host ""
-    Write-Host "⚙️  Generando configuración de MCP..." -ForegroundColor $ColorInfo
+    Write-Host "[Config] Generando configuracion de MCP..." -ForegroundColor $ColorInfo
     
     $projectPath = (Get-Location).Path
     $mcpConfig = @{
@@ -279,7 +279,7 @@ function Generate-MCPConfig {
     
     try {
         $mcpConfig | ConvertTo-Json -Depth 10 | Out-File $mcpConfigFile -Encoding UTF8
-        Write-Host "  ✓ Configuración MCP guardada en $mcpConfigFile" -ForegroundColor $ColorSuccess
+        Write-Host "  [OK] Configuracion MCP guardada en $mcpConfigFile" -ForegroundColor $ColorSuccess
         
         # Mostrar resumen
         Write-Host ""
@@ -290,7 +290,7 @@ function Generate-MCPConfig {
         
         return $true
     } catch {
-        Write-Host "  ✗ Error guardando configuración MCP: $_" -ForegroundColor $ColorError
+        Write-Host "  [ERROR] Error guardando configuracion MCP: $_" -ForegroundColor $ColorError
         return $false
     }
 }
@@ -305,7 +305,7 @@ function Test-SystemConnections {
     )
     
     Write-Host ""
-    Write-Host "🔌 Verificando conexiones a sistemas SAP..." -ForegroundColor $ColorInfo
+    Write-Host "[Test] Verificando conexiones a sistemas SAP..." -ForegroundColor $ColorInfo
     Write-Host ""
     
     $allSuccess = $true
@@ -350,13 +350,13 @@ except Exception as e:
                 $result = $testScript | python
                 
                 if ($result -eq "SUCCESS") {
-                    Write-Host "    ✓ Conexión exitosa" -ForegroundColor $ColorSuccess
+                    Write-Host "    [OK] Conexion exitosa" -ForegroundColor $ColorSuccess
                 } else {
-                    Write-Host "    ✗ Error: $result" -ForegroundColor $ColorError
+                    Write-Host "    [ERROR] Error: $result" -ForegroundColor $ColorError
                     $allSuccess = $false
                 }
             } catch {
-                Write-Host "    ✗ Error: $_" -ForegroundColor $ColorError
+                Write-Host "    [ERROR] Error: $_" -ForegroundColor $ColorError
                 $allSuccess = $false
             }
         }
@@ -370,7 +370,7 @@ except Exception as e:
 # ============================================================================
 function Copy-FrameworkFiles {
     Write-Host ""
-    Write-Host "📦 Copiando archivos del framework..." -ForegroundColor $ColorInfo
+    Write-Host "[Setup] Copiando archivos del framework..." -ForegroundColor $ColorInfo
     
     $success = $true
     
@@ -381,7 +381,7 @@ function Copy-FrameworkFiles {
             New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
         }
         Copy-Item -Path ".\.kiro\steering\*" -Destination $targetDir -Force -Recurse
-        Write-Host "  ✓ Steering files copiados" -ForegroundColor $ColorSuccess
+        Write-Host "  [OK] Steering files copiados" -ForegroundColor $ColorSuccess
     }
     
     # Skills
@@ -391,7 +391,7 @@ function Copy-FrameworkFiles {
             New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
         }
         Copy-Item -Path ".\.kiro\skills\*" -Destination $targetDir -Force -Recurse
-        Write-Host "  ✓ Skills copiados" -ForegroundColor $ColorSuccess
+        Write-Host "  [OK] Skills copiados" -ForegroundColor $ColorSuccess
     }
     
     # Hooks
@@ -401,7 +401,7 @@ function Copy-FrameworkFiles {
             New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
         }
         Copy-Item -Path ".\.kiro\hooks\*" -Destination $targetDir -Force -Recurse
-        Write-Host "  ✓ Hooks copiados" -ForegroundColor $ColorSuccess
+        Write-Host "  [OK] Hooks copiados" -ForegroundColor $ColorSuccess
     }
     
     # Templates
@@ -411,7 +411,7 @@ function Copy-FrameworkFiles {
             New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
         }
         Copy-Item -Path ".\templates\*" -Destination $targetDir -Force -Recurse
-        Write-Host "  ✓ Templates copiados" -ForegroundColor $ColorSuccess
+        Write-Host "  [OK] Templates copiados" -ForegroundColor $ColorSuccess
     }
     
     return $success
@@ -432,16 +432,16 @@ function Show-FinalSummary {
     Write-Host ""
     
     if ($AllTestsPassed) {
-        Write-Host "✅ ¡Configuración completada exitosamente!" -ForegroundColor $ColorSuccess
+        Write-Host "[OK] Configuracion completada exitosamente!" -ForegroundColor $ColorSuccess
     } else {
-        Write-Host "⚠️  Configuración completada con advertencias" -ForegroundColor $ColorWarning
+        Write-Host "[!] Configuracion completada con advertencias" -ForegroundColor $ColorWarning
     }
     
     Write-Host ""
-    Write-Host "📋 Resumen de configuración:" -ForegroundColor $ColorInfo
-    Write-Host "  • Usuario: $($UserInfo.Name)" -ForegroundColor $ColorInfo
-    Write-Host "  • Email: $($UserInfo.Email)" -ForegroundColor $ColorInfo
-    Write-Host "  • Equipo: $($UserInfo.Team)" -ForegroundColor $ColorInfo
+    Write-Host "[i] Resumen de configuracion:" -ForegroundColor $ColorInfo
+    Write-Host "  - Usuario: $($UserInfo.Name)" -ForegroundColor $ColorInfo
+    Write-Host "  - Email: $($UserInfo.Email)" -ForegroundColor $ColorInfo
+    Write-Host "  - Equipo: $($UserInfo.Team)" -ForegroundColor $ColorInfo
     Write-Host ""
     Write-Host "  Sistemas configurados:" -ForegroundColor $ColorInfo
     
@@ -454,16 +454,16 @@ function Show-FinalSummary {
     }
     
     Write-Host ""
-    Write-Host "🎯 Próximos pasos:" -ForegroundColor $ColorInfo
+    Write-Host "[>] Proximos pasos:" -ForegroundColor $ColorInfo
     Write-Host "  1. Reinicia Kiro para aplicar los cambios" -ForegroundColor $ColorWarning
-    Write-Host "  2. Verifica que los MCP servers estén conectados (panel lateral)" -ForegroundColor $ColorWarning
-    Write-Host "  3. Prueba con: 'Verifica la conexión con SAP [SISTEMA]'" -ForegroundColor $ColorWarning
+    Write-Host "  2. Verifica que los MCP servers esten conectados (panel lateral)" -ForegroundColor $ColorWarning
+    Write-Host "  3. Prueba con: 'Verifica la conexion con SAP [SISTEMA]'" -ForegroundColor $ColorWarning
     Write-Host ""
-    Write-Host "📚 Recursos disponibles:" -ForegroundColor $ColorInfo
-    Write-Host "  • Skills: #sap-mcp-capabilities, #solid-refactoring, #transport-management" -ForegroundColor $ColorInfo
-    Write-Host "  • Documentación: QUICK_START.md, ONBOARDING_NUEVO_DESARROLLADOR.md" -ForegroundColor $ColorInfo
+    Write-Host "[i] Recursos disponibles:" -ForegroundColor $ColorInfo
+    Write-Host "  - Skills: #sap-mcp-capabilities, #solid-refactoring, #transport-management" -ForegroundColor $ColorInfo
+    Write-Host "  - Documentacion: QUICK_START.md, ONBOARDING_NUEVO_DESARROLLADOR.md" -ForegroundColor $ColorInfo
     Write-Host ""
-    Write-Host "💡 Para reconfigurar, ejecuta nuevamente: .\setup-wizard.ps1" -ForegroundColor $ColorInfo
+    Write-Host "[i] Para reconfigurar, ejecuta nuevamente: .\setup-wizard.ps1" -ForegroundColor $ColorInfo
     Write-Host ""
     Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor $ColorInfo
     Write-Host ""
@@ -476,14 +476,14 @@ function Show-FinalSummary {
 Show-Banner
 
 # Verificar prerequisitos
-Write-Host "🔍 Verificando prerequisitos..." -ForegroundColor $ColorInfo
+Write-Host "[Check] Verificando prerequisitos..." -ForegroundColor $ColorInfo
 Write-Host ""
 
 try {
     $pythonVersion = python --version 2>&1
-    Write-Host "  ✓ Python: $pythonVersion" -ForegroundColor $ColorSuccess
+    Write-Host "  [OK] Python: $pythonVersion" -ForegroundColor $ColorSuccess
 } catch {
-    Write-Host "  ✗ Python no encontrado. Instala Python 3.8+ desde python.org" -ForegroundColor $ColorError
+    Write-Host "  [ERROR] Python no encontrado. Instala Python 3.8+ desde python.org" -ForegroundColor $ColorError
     exit 1
 }
 
@@ -499,7 +499,7 @@ Show-Banner
 $availableSystems = Get-AvailableSystems
 
 if ($null -eq $availableSystems) {
-    Write-Host "❌ No se pudo cargar la configuración de sistemas" -ForegroundColor $ColorError
+    Write-Host "[ERROR] No se pudo cargar la configuracion de sistemas" -ForegroundColor $ColorError
     exit 1
 }
 
@@ -510,9 +510,9 @@ Read-Host "Presiona Enter para continuar"
 
 # Paso 3: Configurar sistemas
 Show-Banner
-Write-Host "🔧 Configuración de sistemas SAP" -ForegroundColor $ColorInfo
+Write-Host "[Config] Configuracion de sistemas SAP" -ForegroundColor $ColorInfo
 Write-Host ""
-Write-Host "A continuación, configurarás los sistemas SAP que utilizas." -ForegroundColor $ColorInfo
+Write-Host "A continuacion, configuraras los sistemas SAP que utilizas." -ForegroundColor $ColorInfo
 Write-Host "Puedes configurar uno o varios sistemas." -ForegroundColor $ColorInfo
 Write-Host ""
 Read-Host "Presiona Enter para continuar"
@@ -532,13 +532,13 @@ foreach ($item in $systemList) {
 
 if ($systemsConfig.Count -eq 0) {
     Write-Host ""
-    Write-Host "❌ No se configuró ningún sistema. Abortando." -ForegroundColor $ColorError
+    Write-Host "[ERROR] No se configuro ningun sistema. Abortando." -ForegroundColor $ColorError
     exit 1
 }
 
 # Paso 4: Preferencias
 Show-Banner
-Write-Host "⚙️  Preferencias" -ForegroundColor $ColorInfo
+Write-Host "[Config] Preferencias" -ForegroundColor $ColorInfo
 Write-Host ""
 
 $autoActivate = Read-Host "  ¿Activar objetos automáticamente después de subirlos? (S/N)"
@@ -553,10 +553,10 @@ $preferences = @{
 
 # Paso 5: Guardar configuración
 Show-Banner
-Write-Host "💾 Guardando configuración..." -ForegroundColor $ColorInfo
+Write-Host "[Save] Guardando configuracion..." -ForegroundColor $ColorInfo
 
 if (-not (Save-UserConfig -UserInfo $userInfo -SystemsConfig $systemsConfig -Preferences $preferences)) {
-    Write-Host "❌ Error guardando configuración de usuario" -ForegroundColor $ColorError
+    Write-Host "[ERROR] Error guardando configuracion de usuario" -ForegroundColor $ColorError
     exit 1
 }
 
@@ -565,18 +565,18 @@ Set-EnvironmentVariables -SystemsConfig $systemsConfig
 
 # Paso 7: Generar configuración de MCP
 if (-not (Generate-MCPConfig -AvailableSystems $availableSystems -SystemsConfig $systemsConfig)) {
-    Write-Host "❌ Error generando configuración de MCP" -ForegroundColor $ColorError
+    Write-Host "[ERROR] Error generando configuracion de MCP" -ForegroundColor $ColorError
     exit 1
 }
 
 # Paso 8: Instalar dependencias Python
 Write-Host ""
-Write-Host "📦 Instalando dependencias Python..." -ForegroundColor $ColorInfo
+Write-Host "[Setup] Instalando dependencias Python..." -ForegroundColor $ColorInfo
 try {
     pip install -r requirements.txt --quiet
-    Write-Host "  ✓ Dependencias instaladas" -ForegroundColor $ColorSuccess
+    Write-Host "  [OK] Dependencias instaladas" -ForegroundColor $ColorSuccess
 } catch {
-    Write-Host "  ⚠ Error instalando dependencias: $_" -ForegroundColor $ColorWarning
+    Write-Host "  [!] Error instalando dependencias: $_" -ForegroundColor $ColorWarning
 }
 
 # Paso 9: Copiar archivos del framework

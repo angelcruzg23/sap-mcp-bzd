@@ -485,17 +485,33 @@ pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org reques
 **Síntoma:**
 ```
 Unexpected token '}' in expression or statement...
+The string is missing the terminator: '.
 ```
 
-**Causa:** Problemas con emojis en PowerShell
+**Causa:** Problemas con emojis UTF-8 en PowerShell (ya corregido en la última versión)
 
-**Solución:** Usar el instalador simple en lugar del wizard
+**Solución 1: Actualizar el archivo (Recomendado)**
 ```powershell
-# En lugar de .\setup-wizard.ps1, usar:
+# Si usas Git, actualiza el repositorio
+git pull origin main
+
+# Ejecutar el wizard corregido
+.\setup-wizard.ps1
+```
+
+**Solución 2: Usar el instalador simple**
+```powershell
+# Alternativa sin interfaz interactiva
+.\setup-simple.ps1 -SystemKey BZD -Username "TU_USUARIO_SAP"
+```
+
+**Solución 3: Usar el instalador original**
+```powershell
+# Instalador básico (solo BZD)
 .\install.ps1 -SAPUser "TU_USUARIO_SAP"
 ```
 
-El instalador simple hace lo mismo pero sin interfaz interactiva.
+**Nota:** Este error fue reportado por YCARRAN1 el 2026-05-05 y ya está corregido. Si descargaste el repositorio antes de esa fecha, actualiza con `git pull`.
 
 ---
 
