@@ -1,0 +1,62 @@
+{
+  "mcpServers": {
+    "sap-bzd": {
+      "command": "python",
+      "args": ["${SAP_MCP_SERVER_PATH}"],
+      "env": {
+        "SAP_HOST": "fbpl08v010.holcimbp.net:8000",
+        "SAP_CLIENT": "130",
+        "SAP_USER": "${SAP_USER_BZD}",
+        "SAP_PASSWORD": "${SAP_PASSWORD_BZD}",
+        "SAP_SECURE": "false",
+        "SAP_SYSTEM_ID": "BZD"
+      },
+      "timeout": 60000,
+      "autoApprove": [
+        "sap_ping",
+        "sap_get_program_source",
+        "sap_get_include_source",
+        "sap_get_class_source",
+        "sap_get_function_module_source",
+        "sap_search_objects",
+        "sap_get_table_definition",
+        "sap_check_adt_capabilities",
+        "sap_test_endpoint",
+        "sap_syntax_check",
+        "sap_list_transports",
+        "sap_get_transport_details",
+        "sap_get_transport_xml_raw",
+        "sap_run_abap_unit"
+      ]
+    },
+    "sap-bzn": {
+      "command": "python",
+      "args": ["${SAP_MCP_SERVER_PATH}"],
+      "env": {
+        "SAP_HOST": "lfh02a09ld075.holcimbp.net:8040",
+        "SAP_CLIENT": "100",
+        "SAP_USER": "${SAP_USER_BZN}",
+        "SAP_PASSWORD": "${SAP_PASSWORD_BZN}",
+        "SAP_SECURE": "false",
+        "SAP_SYSTEM_ID": "BZN"
+      },
+      "timeout": 60000,
+      "autoApprove": [
+        "sap_ping",
+        "sap_get_program_source",
+        "sap_get_include_source",
+        "sap_get_class_source",
+        "sap_get_function_module_source",
+        "sap_search_objects",
+        "sap_get_table_definition",
+        "sap_check_adt_capabilities",
+        "sap_test_endpoint",
+        "sap_syntax_check",
+        "sap_list_transports",
+        "sap_get_transport_details",
+        "sap_get_transport_xml_raw",
+        "sap_run_abap_unit"
+      ]
+    }
+  }
+}

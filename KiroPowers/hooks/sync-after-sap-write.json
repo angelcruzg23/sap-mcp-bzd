@@ -1,0 +1,13 @@
+{
+  "name": "Sync After SAP Write",
+  "version": "1.0.0",
+  "description": "Después de cada escritura exitosa en SAP (update_program, update_class, update_interface, update_function_module), recuerda al agente guardar el código localmente en el workspace para mantener sincronía entre SAP y el repositorio local.",
+  "when": {
+    "type": "postToolUse",
+    "toolTypes": ["sap_update_program_source", "sap_update_class_source", "sap_update_interface_source", "sap_update_function_module_source", "sap_create_program", "sap_create_class", "sap_create_interface"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "El código fue escrito en SAP exitosamente. Ahora guarda el código localmente en el workspace en la carpeta del proyecto correspondiente (PowerSkillSapAmrize/SAP/[PROYECTO]/[OBJETO].abap). Si el archivo ya existe, actualízalo. Si no existe, créalo. Esto mantiene sincronía entre SAP y el repositorio local."
+  }
+}

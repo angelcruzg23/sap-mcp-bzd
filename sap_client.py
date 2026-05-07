@@ -297,6 +297,323 @@ class SAPADTClient:
         except Exception as e:
             return {"ok": False, "message": str(e)}
 
+    def create_interface(self, interface_name: str, description: str, package: str,
+                         transport: str, source_code: str) -> dict:
+        """Crea una interfaz ABAP OO nueva en SAP (INTF/OI)."""
+        interface_name = interface_name.upper()
+        try:
+            csrf_token = self._fetch_csrf_token()
+            if not csrf_token:
+                return {"ok": False, "message": "No se pudo obtener CSRF token"}
+
+            # Paso 1: Crear el objeto interfaz
+            create_xml = (
+                '<?xml version="1.0" encoding="UTF-8"?>'
+                '<intf:abapInterface xmlns:intf="http://www.sap.com/adt/oo/interfaces" '
+                'xmlns:adtcore="http://www.sap.com/adt/core" '
+                'xmlns:abapsource="http://www.sap.com/adt/abapsource" '
+                'xmlns:abapoo="http://www.sap.com/adt/oo" '
+                'abapoo:modeled="false" '
+                'abapsource:fixPointArithmetic="true" '
+                'abapsource:activeUnicodeCheck="true" '
+                f'adtcore:description="{description}" '
+                f'adtcore:language="EN" '
+                f'adtcore:name="{interface_name}" '
+                f'adtcore:type="INTF/OI" '
+                f'adtcore:responsible="{self.username}">'
+                f'<adtcore:packageRef adtcore:name="{package}"/>'
+                '</intf:abapInterface>'
+            )
+
+            params = {}
+            if transport:
+                params["corrNr"] = transport
+
+            resp = self.session.post(
+                self._url("/sap/bc/adt/oo/interfaces"),
+                data=create_xml.encode("utf-8"),
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "Content-Type": "application/vnd.sap.adt.oo.interfaces.v2+xml",
+                },
+                params=params,
+                timeout=30,
+            )
+
+            if resp.status_code not in (200, 201):
+                return {
+                    "ok": False, "step": "create",
+                    "status": resp.status_code,
+                    "message": resp.text[:500],
+                }
+
+            # Paso 2: Escribir el código fuente
+            object_url = f"/sap/bc/adt/oo/interfaces/{interface_name.lower()}"
+            source_url = f"{object_url}/source/main"
+
+            csrf_token2 = self._fetch_csrf_token()
+            lock_result = self._lock_object(object_url, csrf_token2)
+            if not lock_result.get("ok"):
+                return {"ok": False, "step": "lock", "detail": lock_result}
+            lock_handle = lock_result["lock_handle"]
+
+            write_params = {"lockHandle": lock_handle}
+            if transport:
+                write_params["corrNr"] = transport
+
+            write_resp = self.session.put(
+                self._url(source_url),
+                data=source_code.encode("utf-8"),
+                headers={
+                    "X-CSRF-Token": csrf_token2,
+                    "Content-Type": "text/plain; charset=utf-8",
+                },
+                params=write_params,
+                timeout=30,
+            )
+            self._unlock_object(object_url, lock_handle, csrf_token2)
+
+            if write_resp.status_code not in (200, 204):
+                return {
+                    "ok": False, "step": "write",
+                    "status": write_resp.status_code,
+                    "message": write_resp.text[:500],
+                }
+
+            # Paso 3: Activar
+            activate_result = self.activate_object(interface_name, "INTF/OI")
+            return {
+                "ok": activate_result.get("ok", False),
+                "interface": interface_name,
+                "created": True,
+                "activated": activate_result.get("ok", False),
+                "activate_detail": activate_result,
+            }
+
+        except Exception as e:
+            return {"ok": False, "message": str(e)}
+
+    @staticmethod
+    def _split_class_source(source_code: str):
+        """
+        Separa el source_code de una clase en (definition_part, implementation_part).
+        Busca el primer 'CLASS ... IMPLEMENTATION.' para hacer el split.
+        Retorna (definition, implementation) como strings.
+        """
+        import re
+        # Buscar el inicio del bloque IMPLEMENTATION (case-insensitive)
+        pattern = re.compile(
+            r'^(CLASS\s+\S+\s+IMPLEMENTATION\s*\.)',
+            re.IGNORECASE | re.MULTILINE
+        )
+        match = pattern.search(source_code)
+        if match:
+            definition = source_code[:match.start()].rstrip()
+            implementation = source_code[match.start():]
+            return definition, implementation
+        # Si no hay IMPLEMENTATION, todo es definition
+        return source_code, ""
+
+    def _write_class_include(self, object_url: str, include_type: str,
+                              content: str, lock_handle: str,
+                              csrf_token: str, transport: str) -> dict:
+        """Escribe un include específico de una clase (definitions o implementations)."""
+        include_url = f"{object_url}/includes/{include_type}"
+        params = {"lockHandle": lock_handle}
+        if transport:
+            params["corrNr"] = transport
+        resp = self.session.put(
+            self._url(include_url),
+            data=content.encode("utf-8"),
+            headers={
+                "X-CSRF-Token": csrf_token,
+                "Content-Type": "text/plain; charset=utf-8",
+            },
+            params=params,
+            timeout=30,
+        )
+        return {"ok": resp.status_code in (200, 204),
+                "status": resp.status_code,
+                "message": resp.text[:300] if resp.status_code not in (200, 204) else ""}
+
+    def create_class(self, class_name: str, description: str, package: str,
+                     transport: str, source_code: str,
+                     is_final: bool = True, for_testing: bool = False) -> dict:
+        """Crea una clase ABAP OO nueva en SAP (CLAS/OC).
+        Escribe definition e implementation en includes separados."""
+        class_name = class_name.upper()
+        try:
+            csrf_token = self._fetch_csrf_token()
+            if not csrf_token:
+                return {"ok": False, "message": "No se pudo obtener CSRF token"}
+
+            final_attr = "true" if is_final else "false"
+            # Paso 1: Crear el objeto clase
+            create_xml = (
+                '<?xml version="1.0" encoding="UTF-8"?>'
+                '<class:abapClass xmlns:class="http://www.sap.com/adt/oo/classes" '
+                'xmlns:adtcore="http://www.sap.com/adt/core" '
+                'xmlns:abapsource="http://www.sap.com/adt/abapsource" '
+                'xmlns:abapoo="http://www.sap.com/adt/oo" '
+                f'class:final="{final_attr}" '
+                'class:abstract="false" '
+                'class:visibility="public" '
+                'class:category="generalObjectType" '
+                'abapoo:modeled="false" '
+                'abapsource:fixPointArithmetic="true" '
+                'abapsource:activeUnicodeCheck="true" '
+                f'adtcore:description="{description}" '
+                f'adtcore:language="EN" '
+                f'adtcore:name="{class_name}" '
+                f'adtcore:type="CLAS/OC" '
+                f'adtcore:responsible="{self.username}">'
+                f'<adtcore:packageRef adtcore:name="{package}"/>'
+                '</class:abapClass>'
+            )
+
+            params = {}
+            if transport:
+                params["corrNr"] = transport
+
+            resp = self.session.post(
+                self._url("/sap/bc/adt/oo/classes"),
+                data=create_xml.encode("utf-8"),
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "Content-Type": "application/vnd.sap.adt.oo.classes.v2+xml",
+                },
+                params=params,
+                timeout=30,
+            )
+
+            if resp.status_code not in (200, 201):
+                return {
+                    "ok": False, "step": "create",
+                    "status": resp.status_code,
+                    "message": resp.text[:500],
+                }
+
+            # Paso 2: Separar y escribir definition + implementation en includes separados
+            object_url = f"/sap/bc/adt/oo/classes/{class_name.lower()}"
+            definition, implementation = self._split_class_source(source_code)
+
+            csrf_token2 = self._fetch_csrf_token()
+            lock_result = self._lock_object(object_url, csrf_token2)
+            if not lock_result.get("ok"):
+                return {"ok": False, "step": "lock", "detail": lock_result}
+            lock_handle = lock_result["lock_handle"]
+
+            # Escribir definitions
+            def_result = self._write_class_include(
+                object_url, "definitions", definition, lock_handle, csrf_token2, transport)
+            if not def_result.get("ok"):
+                self._unlock_object(object_url, lock_handle, csrf_token2)
+                return {"ok": False, "step": "write_definitions", "detail": def_result}
+
+            # Escribir implementations (si hay)
+            if implementation:
+                impl_result = self._write_class_include(
+                    object_url, "implementations", implementation, lock_handle, csrf_token2, transport)
+                if not impl_result.get("ok"):
+                    self._unlock_object(object_url, lock_handle, csrf_token2)
+                    return {"ok": False, "step": "write_implementations", "detail": impl_result}
+
+            self._unlock_object(object_url, lock_handle, csrf_token2)
+
+            # Paso 3: Activar
+            activate_result = self.activate_object(class_name, "CLAS/OC")
+            return {
+                "ok": activate_result.get("ok", False),
+                "class": class_name,
+                "created": True,
+                "activated": activate_result.get("ok", False),
+                "activate_detail": activate_result,
+            }
+
+        except Exception as e:
+            return {"ok": False, "message": str(e)}
+
+    def update_class_source(self, class_name: str, source_code: str,
+                            transport: str = "") -> dict:
+        """Actualiza el código fuente de una clase ABAP existente.
+        Escribe definition e implementation en includes separados."""
+        class_name = class_name.upper()
+        object_url = f"/sap/bc/adt/oo/classes/{class_name.lower()}"
+        try:
+            csrf_token = self._fetch_csrf_token()
+            if not csrf_token:
+                return {"ok": False, "message": "No se pudo obtener CSRF token"}
+
+            definition, implementation = self._split_class_source(source_code)
+
+            lock_result = self._lock_object(object_url, csrf_token)
+            if not lock_result.get("ok"):
+                return {"ok": False, "step": "lock", "detail": lock_result}
+            lock_handle = lock_result["lock_handle"]
+
+            def_result = self._write_class_include(
+                object_url, "definitions", definition, lock_handle, csrf_token, transport)
+            if not def_result.get("ok"):
+                self._unlock_object(object_url, lock_handle, csrf_token)
+                return {"ok": False, "step": "write_definitions", "detail": def_result}
+
+            if implementation:
+                impl_result = self._write_class_include(
+                    object_url, "implementations", implementation, lock_handle, csrf_token, transport)
+                if not impl_result.get("ok"):
+                    self._unlock_object(object_url, lock_handle, csrf_token)
+                    return {"ok": False, "step": "write_implementations", "detail": impl_result}
+
+            self._unlock_object(object_url, lock_handle, csrf_token)
+
+            return {"ok": True, "class": class_name, "message": "Código fuente actualizado"}
+
+        except Exception as e:
+            return {"ok": False, "message": str(e)}
+
+    def update_interface_source(self, interface_name: str, source_code: str,
+                                transport: str = "") -> dict:
+        """Actualiza el código fuente de una interfaz ABAP existente."""
+        interface_name = interface_name.upper()
+        object_url = f"/sap/bc/adt/oo/interfaces/{interface_name.lower()}"
+        source_url = f"{object_url}/source/main"
+        try:
+            csrf_token = self._fetch_csrf_token()
+            if not csrf_token:
+                return {"ok": False, "message": "No se pudo obtener CSRF token"}
+
+            lock_result = self._lock_object(object_url, csrf_token)
+            if not lock_result.get("ok"):
+                return {"ok": False, "step": "lock", "detail": lock_result}
+            lock_handle = lock_result["lock_handle"]
+
+            params = {"lockHandle": lock_handle}
+            if transport:
+                params["corrNr"] = transport
+
+            resp = self.session.put(
+                self._url(source_url),
+                data=source_code.encode("utf-8"),
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "Content-Type": "text/plain; charset=utf-8",
+                },
+                params=params,
+                timeout=30,
+            )
+            self._unlock_object(object_url, lock_handle, csrf_token)
+
+            if resp.status_code in (200, 204):
+                return {"ok": True, "interface": interface_name, "message": "Código fuente actualizado"}
+            else:
+                return {
+                    "ok": False, "step": "write",
+                    "status": resp.status_code,
+                    "message": resp.text[:500],
+                }
+        except Exception as e:
+            return {"ok": False, "message": str(e)}
+
     def create_program(self, program_name: str, description: str, package: str,
                        transport: str, source_code: str) -> dict:
         """Crea un programa ABAP nuevo en SAP."""

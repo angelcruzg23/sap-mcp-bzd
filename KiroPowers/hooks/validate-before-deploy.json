@@ -1,0 +1,13 @@
+{
+  "name": "Validate Before Deploy",
+  "version": "1.0.0",
+  "description": "Antes de ejecutar cualquier escritura en SAP (update o create), verifica que el agente haya leído el código actual como baseline y que el desarrollador haya revisado el diff. Implementa el paso 3-5 del flujo de deploy controlado.",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": ["sap_update_program_source", "sap_update_class_source", "sap_update_interface_source", "sap_update_function_module_source"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Antes de escribir en SAP, confirma que: (1) leíste el código actual de SAP como baseline con sap_get_*_source, (2) el desarrollador revisó el diff entre el código actual y el nuevo, (3) tienes el número de OT para BZD (no usar $TMP en código productivo). Si alguno de estos pasos no se completó, hazlo ahora antes de continuar con la escritura."
+  }
+}

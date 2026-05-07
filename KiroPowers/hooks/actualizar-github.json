@@ -1,0 +1,13 @@
+{
+  "name": "Actualizar GitHub",
+  "version": "1.0.0",
+  "description": "Hace git add, commit y push de todos los cambios del workspace a origin/master con un solo clic. El mensaje del commit incluye la fecha y hora automáticamente.",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "powershell -ExecutionPolicy Bypass -File git-push.ps1",
+    "timeout": 60
+  }
+}

@@ -179,6 +179,115 @@ async def list_tools() -> list[types.Tool]:
             }
         ),
         types.Tool(
+            name="sap_create_interface",
+            description=f"Crea una interfaz ABAP OO nueva (INTF/OI) en {SYS_LABEL}, escribe el código fuente y la activa.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "interface_name": {
+                        "type": "string",
+                        "description": "Nombre de la interfaz en mayúsculas. Ej: ZIF_SD_STOCK_DAO"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Descripción corta de la interfaz"
+                    },
+                    "package": {
+                        "type": "string",
+                        "description": "Paquete de desarrollo. Ej: ZDEV_SD, $TMP"
+                    },
+                    "transport": {
+                        "type": "string",
+                        "description": "Orden de transporte. Dejar vacío para $TMP"
+                    },
+                    "source_code": {
+                        "type": "string",
+                        "description": "Código fuente ABAP completo de la interfaz"
+                    }
+                },
+                "required": ["interface_name", "description", "package", "source_code"]
+            }
+        ),
+        types.Tool(
+            name="sap_create_class",
+            description=f"Crea una clase ABAP OO nueva (CLAS/OC) en {SYS_LABEL}, escribe el código fuente y la activa.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "class_name": {
+                        "type": "string",
+                        "description": "Nombre de la clase en mayúsculas. Ej: ZCL_SD_STOCK_QUERY"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Descripción corta de la clase"
+                    },
+                    "package": {
+                        "type": "string",
+                        "description": "Paquete de desarrollo. Ej: ZDEV_SD, $TMP"
+                    },
+                    "transport": {
+                        "type": "string",
+                        "description": "Orden de transporte. Dejar vacío para $TMP"
+                    },
+                    "source_code": {
+                        "type": "string",
+                        "description": "Código fuente ABAP completo de la clase (CLASS DEFINITION + IMPLEMENTATION)"
+                    },
+                    "is_final": {
+                        "type": "boolean",
+                        "description": "Si la clase es FINAL (default: true)",
+                        "default": True
+                    }
+                },
+                "required": ["class_name", "description", "package", "source_code"]
+            }
+        ),
+        types.Tool(
+            name="sap_update_class_source",
+            description=f"Actualiza el código fuente de una clase ABAP OO existente en {SYS_LABEL}. Hace lock, escribe y unlock.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "class_name": {
+                        "type": "string",
+                        "description": "Nombre de la clase existente. Ej: ZCL_SD_STOCK_QUERY"
+                    },
+                    "source_code": {
+                        "type": "string",
+                        "description": "Código fuente ABAP completo (reemplaza todo el código)"
+                    },
+                    "transport": {
+                        "type": "string",
+                        "description": "Orden de transporte (opcional)"
+                    }
+                },
+                "required": ["class_name", "source_code"]
+            }
+        ),
+        types.Tool(
+            name="sap_update_interface_source",
+            description=f"Actualiza el código fuente de una interfaz ABAP OO existente en {SYS_LABEL}. Hace lock, escribe y unlock.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "interface_name": {
+                        "type": "string",
+                        "description": "Nombre de la interfaz existente. Ej: ZIF_SD_STOCK_DAO"
+                    },
+                    "source_code": {
+                        "type": "string",
+                        "description": "Código fuente ABAP completo (reemplaza todo el código)"
+                    },
+                    "transport": {
+                        "type": "string",
+                        "description": "Orden de transporte (opcional)"
+                    }
+                },
+                "required": ["interface_name", "source_code"]
+            }
+        ),
+        types.Tool(
             name="sap_create_program",
             description=f"Crea un programa ABAP nuevo en {SYS_LABEL}, escribe el código fuente y lo activa. Requiere nombre, descripción, paquete, orden de transporte y código fuente.",
             inputSchema={
@@ -461,6 +570,47 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         if not path:
             return respond({"ok": False, "message": "path es requerido"})
         result = sap.test_endpoint(path, method)
+        return respond(result)
+
+    elif name == "sap_create_interface":
+        intf = arguments.get("interface_name", "").upper()
+        desc = arguments.get("description", "")
+        pkg = arguments.get("package", "$TMP").upper()
+        tr = arguments.get("transport", "")
+        src = arguments.get("source_code", "")
+        if not intf or not src:
+            return respond({"ok": False, "message": "interface_name y source_code son requeridos"})
+        result = sap.create_interface(intf, desc, pkg, tr, src)
+        return respond(result)
+
+    elif name == "sap_create_class":
+        cls = arguments.get("class_name", "").upper()
+        desc = arguments.get("description", "")
+        pkg = arguments.get("package", "$TMP").upper()
+        tr = arguments.get("transport", "")
+        src = arguments.get("source_code", "")
+        is_final = arguments.get("is_final", True)
+        if not cls or not src:
+            return respond({"ok": False, "message": "class_name y source_code son requeridos"})
+        result = sap.create_class(cls, desc, pkg, tr, src, is_final)
+        return respond(result)
+
+    elif name == "sap_update_class_source":
+        cls = arguments.get("class_name", "").upper()
+        src = arguments.get("source_code", "")
+        tr = arguments.get("transport", "")
+        if not cls or not src:
+            return respond({"ok": False, "message": "class_name y source_code son requeridos"})
+        result = sap.update_class_source(cls, src, tr)
+        return respond(result)
+
+    elif name == "sap_update_interface_source":
+        intf = arguments.get("interface_name", "").upper()
+        src = arguments.get("source_code", "")
+        tr = arguments.get("transport", "")
+        if not intf or not src:
+            return respond({"ok": False, "message": "interface_name y source_code son requeridos"})
+        result = sap.update_interface_source(intf, src, tr)
         return respond(result)
 
     elif name == "sap_create_program":
