@@ -205,25 +205,13 @@ function Set-MCPServers {
     # Configuracion de MCP servers
     $mcpConfig = @{
         mcpServers = @{
-            "sap-bzd" = @{
+            "sap-dev" = @{
                 command = "python"
                 args = @($serverPyPath)
                 env = @{
-                    SAP_HOST = "fbpl08v010.holcimbp.net"
-                    SAP_PORT = "8000"
-                    SAP_CLIENT = "130"
-                    SAP_USER = $User
-                }
-                disabled = $false
-                autoApprove = @()
-            }
-            "sap-bzn" = @{
-                command = "python"
-                args = @($serverPyPath)
-                env = @{
-                    SAP_HOST = "lfh02a09ld075.holcimbp.net"
-                    SAP_PORT = "8040"
-                    SAP_CLIENT = "100"
+                    SAP_HOST = "nascdev.na.holcim.net"
+                    SAP_PORT = "8081"
+                    SAP_CLIENT = "310"
                     SAP_USER = $User
                 }
                 disabled = $false
@@ -236,8 +224,7 @@ function Set-MCPServers {
     try {
         $mcpConfig | ConvertTo-Json -Depth 10 | Out-File $mcpConfigFile -Encoding UTF8
         Write-Host "  [OK] MCP servers configurados:" -ForegroundColor $ColorSuccess
-        Write-Host "    - sap-bzd (BZD - Desarrollo)" -ForegroundColor $ColorSuccess
-        Write-Host "    - sap-bzn (BZN - Sandbox)" -ForegroundColor $ColorSuccess
+        Write-Host "    - sap-dev (DEV - Building Material, client 310)" -ForegroundColor $ColorSuccess
     } catch {
         Write-Host "  [ERROR] Error configurando MCP servers: $_" -ForegroundColor $ColorError
         return $false
@@ -367,7 +354,7 @@ function Copy-Templates {
 # ============================================================================
 function Test-SAPConnection {
     Write-Host ""
-    Write-Host "Verificando conexion a SAP BZD..." -ForegroundColor $ColorInfo
+    Write-Host "Verificando conexion a SAP DEV..." -ForegroundColor $ColorInfo
 
     try {
         # Crear script Python temporal para test de conexion
@@ -383,9 +370,9 @@ from requests.auth import HTTPBasicAuth
 import os
 import sys
 
-host = 'fbpl08v010.holcimbp.net'
-port = '8000'
-client = '130'
+host = 'nascdev.na.holcim.net'
+port = '8081'
+client = '310'
 user = sys.argv[1] if len(sys.argv) > 1 else ''
 password = os.environ.get('SAP_PASSWORD', '')
 
@@ -412,7 +399,7 @@ except Exception as e:
         Remove-Item $tempPy -ErrorAction SilentlyContinue
 
         if ($result -eq "SUCCESS") {
-            Write-Host "  [OK] Conexion exitosa con SAP BZD" -ForegroundColor $ColorSuccess
+            Write-Host "  [OK] Conexion exitosa con SAP DEV" -ForegroundColor $ColorSuccess
             return $true
         } else {
             Write-Host "  [ERROR] Error de conexion: $result" -ForegroundColor $ColorError
@@ -446,12 +433,12 @@ function Show-Summary {
         Write-Host "  Resumen de configuracion:" -ForegroundColor $ColorInfo
         Write-Host "    Usuario SAP: $SAPUser" -ForegroundColor $ColorInfo
         Write-Host "    Sistema por defecto: $DefaultSystem" -ForegroundColor $ColorInfo
-        Write-Host "    MCP servers: sap-bzd, sap-bzn" -ForegroundColor $ColorInfo
+        Write-Host "    MCP servers: sap-dev" -ForegroundColor $ColorInfo
         Write-Host ""
         Write-Host "  Proximos pasos:" -ForegroundColor $ColorInfo
         Write-Host "    1. Reinicia Kiro para aplicar los cambios" -ForegroundColor $ColorWarning
         Write-Host "    2. Verifica que los MCP servers esten conectados (panel lateral)" -ForegroundColor $ColorWarning
-        Write-Host "    3. Prueba con: 'Verifica la conexion con SAP BZD'" -ForegroundColor $ColorWarning
+        Write-Host "    3. Prueba con: 'Verifica la conexion con SAP DEV'" -ForegroundColor $ColorWarning
         Write-Host ""
         Write-Host "  Recursos disponibles:" -ForegroundColor $ColorInfo
         Write-Host "    Skills: #sap-mcp-capabilities, #solid-refactoring, #transport-management" -ForegroundColor $ColorInfo
